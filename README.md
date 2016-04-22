@@ -1,4 +1,4 @@
-orchestrator-clues-plugin
+CLUES INDIGO Extensions
 =========================
 
-CLUES plugin to connect with the INDIGO orchestrator
+* indigo_orchestrator.py: CLUES plugin to connect with the INDIGO orchestrator. Copy it to the ``cluesplugins`` directory of CLUES.
