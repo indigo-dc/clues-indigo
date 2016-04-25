@@ -202,10 +202,10 @@ class powermanager(PowerManager):
 			for resource in resources:
 				if resource['uuid'] != self._get_master_node_id(resources):
 					vm = self.VM_Node(resource['uuid'])
-					status  = resource['status']
-					# Possible status
-					# CREATE_IN_PROGRESS, CREATE_COMPLETE, CREATE_FAILED, UPDATE_IN_PROGRESS, UPDATE_COMPLETE
-					# UPDATE_FAILED, DELETE_IN_PROGRESS, DELETE_COMPLETE, DELETE_FAILED, UNKNOWN
+					status  = resource['state']
+					# Possible status (TOSCA node status)
+					# initial, creating, created, configuring, configured, 
+					# starting, started, stopping, deleting, error 
 
 					# The name of the associated node has been stored in VM launch 
 					node_name = self._get_nodename_from_uuid(vm.vm_id)
@@ -221,13 +221,10 @@ class powermanager(PowerManager):
 					else:
 						self._mvs_seen[node_name].seen()
 					
-					if status in ["CREATE_FAILED", "UPDATE_FAILED", "DELETE_FAILED"]:
+					if status in ["ERROR"]:
 						# This VM is in a "terminal" state remove it from the infrastructure 
 						_LOGGER.error("Node %s in VM with id %s is in state: %s, msg: %s." % (node_name, vm.vm_id, status, resource['statusReason']))
 						self.recover(node_name)
-					elif status in ["UNKNOWN"]:
-						# Do not terminate this VM, let's wait to lifecycle to check if it must be terminated 
-						_LOGGER.warn("Node %s in VM with id %s is in state: %s" % (node_name, vm.vm_id, status))
 
 		# from the nodes that we have powered on, check which of them are still running
 		for nname, node in self._mvs_seen.items():
@@ -416,6 +413,7 @@ class powermanager(PowerManager):
 				_LOGGER.error("ERROR deleting node: %s: %s" % (nname,output))
 			else:
 				_LOGGER.debug("Node %s successfully deleted." % nname)
+				self._delete_mvs_seen(nname)
 				success = True
 		except:
 			_LOGGER.exception("Error powering off node %s " % nname)
