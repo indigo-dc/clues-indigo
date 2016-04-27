@@ -305,7 +305,7 @@ class powermanager(PowerManager):
 	def _delete_mvs_seen(self, nname):
 		del self._mvs_seen[nname]
 		try:
-			self._db.sql_query("DELETE FROM orchestrator_vms WHERE node_name = %s" % nname,True)
+			self._db.sql_query("DELETE FROM orchestrator_vms WHERE node_name = '%s'" % nname,True)
 		except:
 			_LOGGER.exception("Error trying to save INDIGO orchestrator plugin data.")
 		
