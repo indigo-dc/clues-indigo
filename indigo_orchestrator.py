@@ -224,21 +224,25 @@ class powermanager(PowerManager):
                         _LOGGER.error(
                             "No node name obtained for VM ID: %s" % vm.vm_id)
                         self._power_off("noname", vm.vm_id)
-                        continue
-                    elif node_name not in self._mvs_seen:
-                        # This must never happen but ...
-                        _LOGGER.warn(
-                            "Node name %s not in the list of seen VMs." % node_name)
-                        self._mvs_seen[node_name] = vm
                     else:
-                        self._mvs_seen[node_name].seen()
-
-                    if status in ["ERROR"]:
-                        # This VM is in a "terminal" state remove it from the
-                        # infrastructure
-                        _LOGGER.error("Node %s in VM with id %s is in state: %s, msg: %s." % (
-                            node_name, vm.vm_id, status, resource['statusReason']))
-                        self.recover(node_name)
+                        if status in ["ERROR"]:
+                            # This VM is in a "terminal" state remove it from the
+                            # infrastructure
+                            _LOGGER.error("Node %s in VM with id %s is in state: %s, msg: %s." % (
+                                node_name, vm.vm_id, status, resource['statusReason']))
+                            self.recover(node_name)
+                        elif status in ["DELETING"]:
+                            _LOGGER.debug("Node %s in VM with id %s is in state: %s. Ignoring." % (
+                                node_name, vm.vm_id, status))
+                        else:
+                            # The VM is OK
+                            if node_name not in self._mvs_seen:
+                                # This must never happen but ...
+                                _LOGGER.warn(
+                                    "Node name %s not in the list of seen VMs." % node_name)
+                                self._mvs_seen[node_name] = vm
+                            else:
+                                self._mvs_seen[node_name].seen()
 
         # from the nodes that we have powered on, check which of them are still
         # running
