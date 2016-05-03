@@ -21,6 +21,7 @@ Created on 26/1/2015
 @author: micafer
 '''
 
+import copy
 import yaml
 import time
 import json
@@ -372,7 +373,7 @@ class powermanager(PowerManager):
 
         return res
 
-    def _modify_deployment(self, vms, remove_node=None):
+    def _modify_deployment(self, node_name, remove_node=None):
         inf_id = self._get_inf_id()
 
         conn = self._get_http_connection()
@@ -384,7 +385,7 @@ class powermanager(PowerManager):
         conn.putheader('Content-Type', 'application/json')
         conn.putheader('Connection', 'close')
 
-        template = self._get_template(len(vms), remove_node)
+        template = self._get_template(node_name, remove_node)
         body = '{ "template": "%s" }' % template.replace(
             '"', '\"').replace('\n', '\\n')
 
@@ -411,14 +412,12 @@ class powermanager(PowerManager):
                     "There are %d VMs running, we are at the maximum number. Do not power on." % len(vms))
                 return False, nname
 
-            resp_status, output = self._modify_deployment(vms)
+            resp_status, output = self._modify_deployment(nname)
 
             if resp_status not in [200, 201, 202, 204]:
                 _LOGGER.error("Error launching node %s: %s" % (nname, output))
                 return False, nname
             else:
-                nname = self._INDIGO_ORCHESTRATOR_WN_NAME.replace(
-                    "#N#", str(len(vms) + 1))
                 _LOGGER.debug("Node %s successfully created" % nname)
                 # res = json.loads(output)
 
@@ -455,8 +454,7 @@ class powermanager(PowerManager):
         try:
             success = False
 
-            resp_status, output = self._modify_deployment(
-                self._mvs_seen, str(vmid))
+            resp_status, output = self._modify_deployment(nname, str(vmid))
 
             if resp_status not in [200, 201, 202, 204]:
                 _LOGGER.error("ERROR deleting node: %s: %s" % (nname, output))
@@ -477,7 +475,7 @@ class powermanager(PowerManager):
         else:
             return self._power_off(nname, vmid)
 
-    def _get_template(self, count, remove_node=None):
+    def _get_template(self, node_name, remove_node=None):
         inf_id = self._get_inf_id()
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
         auth = self._get_auth_header()
@@ -496,15 +494,49 @@ class powermanager(PowerManager):
             return None
         else:
             templateo = yaml.load(output)
+            # Generate a name for the new WN
+            wn_template_name = "wn_%s" % node_name
+
             if remove_node:
-                if count < 1:
-                    count = 1
-                templateo['topology_template']['node_templates']['torque_wn'][
-                    'capabilities']['scalable']['properties']['count'] = count - 1
-                templateo['topology_template']['node_templates']['torque_wn'][
+                templateo['topology_template']['node_templates'][wn_template_name][
+                    'capabilities']['scalable']['properties']['count'] = 0
+                templateo['topology_template']['node_templates'][wn_template_name][
                     'capabilities']['scalable']['properties']['removal_list'] = [remove_node]
             else:
-                templateo['topology_template']['node_templates']['torque_wn'][
-                    'capabilities']['scalable']['properties']['count'] = count + 1
+                # Add new node with the configured name
+                lrms_template_name = "lrms_%s" % node_name
+                lrms_node, compute_node = self._find_wn_nodetemplates(templateo)
+                compute_node['capabilities']['scalable']['properties']['count'] = 1
 
-        return yaml.dump(templateo)
+                # Put the dns name
+                if 'endpoint' not in compute_node['capabilities']:
+                    compute_node['capabilities']['endpoint'] = {}
+                if 'properties' not in compute_node['capabilities']['endpoint']:
+                    compute_node['capabilities']['endpoint']['properties'] = {}
+                compute_node['capabilities']['endpoint']['properties']['dns_name'] = node_name
+
+                templateo['topology_template']['node_templates'][wn_template_name] = compute_node
+                for req in lrms_node['requirements']:
+                    if 'host' in req:
+                        req['host'] = wn_template_name
+                templateo['topology_template']['node_templates'][lrms_template_name] = lrms_node
+
+        res = yaml.dump(templateo)
+        _LOGGER.debug("TOSCA TEMPLATE: %s" % res)
+        return res
+
+    def _find_wn_nodetemplates(self, template):
+        lrms_node = None
+        compute_node = None
+        try:
+            for name, node in template['topology_template']['node_templates'].items():
+                if node['type'].startswith("tosca.nodes.indigo.LRMS.WorkerNode"):
+                    lrms_node = copy.deepcopy(template['topology_template']['node_templates'][name])
+                    for req in node['requirements']:
+                        if 'host' in req:
+                            compute_node = copy.deepcopy(template['topology_template']['node_templates'][req['host']])
+                            return lrms_node, compute_node
+        except Exception:
+            _LOGGER.exception("Error trying to get the WN template.")
+
+        return lrms_node, compute_node
