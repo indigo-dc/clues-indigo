@@ -21,7 +21,6 @@ Created on 26/1/2015
 @author: micafer
 '''
 
-import copy
 import yaml
 import time
 import json
@@ -41,6 +40,24 @@ _LOGGER = logging.getLogger("[PLUGIN-INDIGO-ORCHESTRATOR]")
 
 
 class powermanager(PowerManager):
+
+    POWER_ON = 1
+    POWER_OFF = 0
+
+    class Task:
+
+        def __init__(self, operation, nname):
+            self.operation = int(operation)
+            self.nname = str(nname)
+
+        def __cmp__(self, other):
+            if self.nname == other.nname and self.operation == other.operation:
+                return 0
+            else:
+                return -1
+
+        def __str__(self):
+            return "%s on %s" % ("Power On" if self.operation == powermanager.POWER_ON else "Power Off", self.nname)
 
     class VM_Node:
 
@@ -70,7 +87,6 @@ class powermanager(PowerManager):
                 "INDIGO_ORCHESTRATOR_MAX_INSTANCES": 0,
                 "INDIGO_ORCHESTRATOR_FORGET_MISSING_VMS": 30,
                 "INDIGO_ORCHESTRATOR_DROP_FAILING_VMS": 30,
-                "INDIGO_ORCHESTRATOR_WN_NAME": "vnode-#N#",
                 "INDIGO_ORCHESTRATOR_DB_CONNECTION_STRING": "sqlite:///var/lib/clues2/clues.db",
                 "INDIGO_ORCHESTRATOR_PAGE_SIZE": 20
             }
@@ -81,7 +97,6 @@ class powermanager(PowerManager):
         self._INDIGO_ORCHESTRATOR_MAX_INSTANCES = config_indigo.INDIGO_ORCHESTRATOR_MAX_INSTANCES
         self._INDIGO_ORCHESTRATOR_FORGET_MISSING_VMS = config_indigo.INDIGO_ORCHESTRATOR_FORGET_MISSING_VMS
         self._INDIGO_ORCHESTRATOR_DROP_FAILING_VMS = config_indigo.INDIGO_ORCHESTRATOR_DROP_FAILING_VMS
-        self._INDIGO_ORCHESTRATOR_WN_NAME = config_indigo.INDIGO_ORCHESTRATOR_WN_NAME
         self._INDIGO_ORCHESTRATOR_PAGE_SIZE = config_indigo.INDIGO_ORCHESTRATOR_PAGE_SIZE
 
         # TODO: to specify the auth data to access the orchestrator
@@ -94,6 +109,7 @@ class powermanager(PowerManager):
             config_indigo.INDIGO_ORCHESTRATOR_DB_CONNECTION_STRING)
         self._create_db()
         self._mvs_seen = self._load_mvs_seen()
+        self._pending_tasks = self._load_pending_tasks()
 
     def _get_auth_header(self):
         auth_header = None
@@ -207,7 +223,7 @@ class powermanager(PowerManager):
         resources = self._get_resources()
 
         if not resources:
-            _LOGGER.warn("No resources obtained from orchestrator.")
+            _LOGGER.warning("No resources obtained from orchestrator.")
         else:
             for resource in resources:
                 if resource['uuid'] != self._get_master_node_id(resources):
@@ -217,29 +233,29 @@ class powermanager(PowerManager):
                     # initial, creating, created, configuring, configured,
                     # starting, started, stopping, deleting, error
 
-                    # The name of the associated node has been stored in VM
-                    # launch
-                    node_name = self._get_nodename_from_uuid(vm.vm_id)
-
-                    if not node_name:
-                        _LOGGER.error(
-                            "No node name obtained for VM ID: %s" % vm.vm_id)
-                        self._power_off("noname", vm.vm_id)
+                    if status in ["ERROR"]:
+                        # This VM is in a "terminal" state remove it from the
+                        # infrastructure
+                        _LOGGER.error("VM with id %s is in state: %s, msg: %s. Powering off." % (
+                            vm.vm_id, status, resource['statusReason']))
+                        self._add_task(self.POWER_OFF, vm.vm_id)
+                    elif status in ["DELETING"]:
+                        _LOGGER.debug("VM with id %s is in state: %s. Ignoring." % (
+                            vm.vm_id, status))
                     else:
-                        if status in ["ERROR"]:
-                            # This VM is in a "terminal" state remove it from the
-                            # infrastructure
-                            _LOGGER.error("Node %s in VM with id %s is in state: %s, msg: %s." % (
-                                node_name, vm.vm_id, status, resource['statusReason']))
-                            self.recover(node_name)
-                        elif status in ["DELETING"]:
-                            _LOGGER.debug("Node %s in VM with id %s is in state: %s. Ignoring." % (
-                                node_name, vm.vm_id, status))
+                        # The name of the associated node has been stored in VM
+                        # launch
+                        node_name = self._get_nodename_from_uuid(vm.vm_id)
+
+                        if not node_name:
+                            _LOGGER.error(
+                                "No node name obtained for VM ID: %s" % vm.vm_id)
+                            self._add_task(self.POWER_OFF, vm.vm_id)
                         else:
                             # The VM is OK
                             if node_name not in self._mvs_seen:
                                 # This must never happen but ...
-                                _LOGGER.warn(
+                                _LOGGER.warning(
                                     "Node name %s not in the list of seen VMs." % node_name)
                                 self._mvs_seen[node_name] = vm
                             else:
@@ -265,6 +281,58 @@ class powermanager(PowerManager):
             return Node.OFF
 
         return False
+
+    def _add_task(self, operation, nname):
+        task = self.Task(operation, nname)
+        if task not in self._pending_tasks:
+            self._pending_tasks.append(task)
+            try:
+                self._db.sql_query(
+                    "INSERT INTO orchestrator_tasks VALUES ('%s', %d)" % (nname, operation), True)
+            except:
+                _LOGGER.exception(
+                    "Error trying to save INDIGO orchestrator tasks data.")
+
+    def _delete_task(self, task):
+        try:
+            self._db.sql_query(
+                "DELETE FROM orchestrator_tasks WHERE node_name = '%s' and operation = %d" % (task.nname,
+                                                                                              task.operation), True)
+        except:
+            _LOGGER.exception(
+                "Error trying to save INDIGO orchestrator tasks data.")
+
+    def _process_pending_tasks(self):
+        if not self._pending_tasks:
+            return
+
+        status = self._get_deployment_status()
+        # Possible status
+        # CREATE_IN_PROGRESS, CREATE_COMPLETE, CREATE_FAILED, UPDATE_IN_PROGRESS, UPDATE_COMPLETE
+        # UPDATE_FAILED, DELETE_IN_PROGRESS, DELETE_COMPLETE, DELETE_FAILED, UNKNOWN
+        if status not in ["CREATE_COMPLETE", "UPDATE_COMPLETE", "DELETE_COMPLETE"]:
+            _LOGGER.debug("The deployment is in an unmodifiable state do not process tasks.")
+            return
+
+        _LOGGER.debug("Processing pending tasks: %s." % self._pending_tasks)
+        task = self._pending_tasks[0]
+        del self._pending_tasks[0]
+        self._delete_task(task)
+
+        success = False
+        if task.operation == self.POWER_ON:
+            success = self._power_on(task.nname)
+        elif task.operation == self.POWER_OFF:
+            # TODO: get all the consecutive poweoffs
+            success = self._power_off([task.nname])
+        else:
+            # it must not happen ...
+            _LOGGER.error("Operation %s unknown." % task.operation)
+
+        if not success:
+            _LOGGER.error("Error processing task: %s" % str(task))
+        else:
+            _LOGGER.debug("Task %s correctly processed." % str(task))
 
     def lifecycle(self):
         try:
@@ -318,9 +386,11 @@ class powermanager(PowerManager):
                     _LOGGER.warning("VM with name %s is detected by the Orchestrator but it does not exist "
                                     "in the monitoring system... recovering it.)" % name)
                     vm.recovered()
-                    recover.append(node.name)
+                    recover.append(name)
 
             self._recover_ids(recover)
+
+            self._process_pending_tasks()
         except:
             _LOGGER.exception(
                 "Error executing lifecycle of INDIGO Orchestrator PowerManager.")
@@ -331,6 +401,8 @@ class powermanager(PowerManager):
         try:
             result, _, _ = self._db.sql_query("CREATE TABLE IF NOT EXISTS orchestrator_vms(node_name varchar(128) "
                                               "PRIMARY KEY, uuid varchar(128))", True)
+            result, _, _ = self._db.sql_query("CREATE TABLE IF NOT EXISTS orchestrator_tasks(node_name varchar(128), "
+                                              "operation int)", True)
         except:
             _LOGGER.exception(
                 "Error creating INDIGO orchestrator plugin DB. The data persistence will not work!")
@@ -373,7 +445,46 @@ class powermanager(PowerManager):
 
         return res
 
-    def _modify_deployment(self, node_name, remove_node=None):
+    def _load_pending_tasks(self):
+        res = []
+        try:
+            result, _, rows = self._db.sql_query(
+                "select * from orchestrator_tasks")
+            if result:
+                for (nname, operation) in rows:
+                    res.append(self.Task(operation, nname))
+            else:
+                _LOGGER.error(
+                    "Error trying to load INDIGO orchestrator tasks data.")
+        except:
+            _LOGGER.exception(
+                "Error trying to load INDIGO orchestrator tasks data.")
+
+        return res
+
+    def _get_deployment_status(self):
+        inf_id = self._get_inf_id()
+        headers = {'Accept': 'application/json', 'Connection': 'close'}
+        auth = self._get_auth_header()
+        if auth:
+            headers.update(auth)
+        conn = self._get_http_connection()
+        conn.request('GET', "/orchestrator/deployments/%s" %
+                     inf_id, headers=headers)
+        resp = conn.getresponse()
+        output = resp.read()
+        conn.close()
+
+        if resp.status != 200:
+            _LOGGER.error("ERROR getting deployment status: %s (%d)" %
+                          (str(output), resp.status))
+            return None
+        else:
+            deployment_info = json.loads(output)
+            _LOGGER.debug("Deployment in status: %s" % deployment_info['status'])
+            return deployment_info['status']
+
+    def _modify_deployment(self, vms, remove_nodes=None, add_nodes=None):
         inf_id = self._get_inf_id()
 
         conn = self._get_http_connection()
@@ -385,7 +496,8 @@ class powermanager(PowerManager):
         conn.putheader('Content-Type', 'application/json')
         conn.putheader('Connection', 'close')
 
-        template = self._get_template(node_name, remove_node)
+        template = self._get_template(len(vms), remove_nodes, add_nodes)
+        _LOGGER.debug("template: " + template)
         body = '{ "template": "%s" }' % template.replace(
             '"', '\"').replace('\n', '\\n')
 
@@ -399,26 +511,30 @@ class powermanager(PowerManager):
         return resp.status, output
 
     def power_on(self, nname):
+        vms = self._mvs_seen
+        if len(vms) >= self._INDIGO_ORCHESTRATOR_MAX_INSTANCES:
+            _LOGGER.debug(
+                "There are %d VMs running, we are at the maximum number. Do not power on %s." % (len(vms), nname))
+            return False, nname
+
+        if nname in vms:
+            _LOGGER.warning("Trying to launch an existing node %s. Ignoring it." % nname)
+            return True, nname
+
+        self._add_task(self.POWER_ON, nname)
+        return True, nname
+
+    def _power_on(self, node_name):
         try:
             vms = self._mvs_seen
 
-            if nname in vms:
-                _LOGGER.warn(
-                    "Trying to launch an existing node %s. Ignoring it." % nname)
-                return True, nname
-
-            if len(vms) >= self._INDIGO_ORCHESTRATOR_MAX_INSTANCES:
-                _LOGGER.debug(
-                    "There are %d VMs running, we are at the maximum number. Do not power on." % len(vms))
-                return False, nname
-
-            resp_status, output = self._modify_deployment(nname)
+            resp_status, output = self._modify_deployment(vms, add_nodes=[node_name])
 
             if resp_status not in [200, 201, 202, 204]:
-                _LOGGER.error("Error launching node %s: %s" % (nname, output))
-                return False, nname
+                _LOGGER.error("Error launching node %s: %s" % (node_name, output))
+                return False
             else:
-                _LOGGER.debug("Node %s successfully created" % nname)
+                _LOGGER.debug("Node %s successfully created" % node_name)
                 # res = json.loads(output)
 
                 # wait to assure the orchestrator process the operation
@@ -439,43 +555,39 @@ class powermanager(PowerManager):
                         wait += delay
 
                 if len(new_uuids) != 1:
-                    _LOGGER.error(
-                        "Trying to get the uuid of the new node and get %d uuids!!" % len(new_uuids))
-                    return False, nname
-                elif len(new_uuids) > 0:
-                    self._add_mvs_seen(nname, self.VM_Node(new_uuids[0]))
-
-                return True, nname
+                    _LOGGER.warning(
+                        "Trying to get the uuids of the new node and get %d uuids!!" % len(new_uuids))
+                else:
+                    self._add_mvs_seen(node_name, self.VM_Node(new_uuids[0]))
+                    return True
         except:
-            _LOGGER.exception("Error launching node %s " % nname)
-            return False, nname
+            _LOGGER.exception("Error launching node %s " % node_name)
+            return False
 
-    def _power_off(self, nname, vmid):
+    def _power_off(self, node_list):
         try:
-            success = False
-
-            resp_status, output = self._modify_deployment(nname, str(vmid))
+            resp_status, output = self._modify_deployment(self._mvs_seen, remove_nodes=node_list)
 
             if resp_status not in [200, 201, 202, 204]:
-                _LOGGER.error("ERROR deleting node: %s: %s" % (nname, output))
+                _LOGGER.error("ERROR deleting nodes: %s: %s" % (node_list, output))
+                return False
             else:
-                _LOGGER.debug("Node %s successfully deleted." % nname)
-                success = True
+                _LOGGER.debug("Nodes %s successfully deleted." % node_list)
+                return True
         except:
-            _LOGGER.exception("Error powering off node %s " % nname)
-
-        return success, nname
+            _LOGGER.exception("Error powering off nodes %s " % node_list)
+            return False
 
     def power_off(self, nname):
-        _LOGGER.debug("Powering off %s" % nname)
         vmid = self._get_uuid_from_nodename(nname)
         if not vmid:
-            _LOGGER.error("There is not any VM associated to node %s." % nname)
+            _LOGGER.error("There is not any VM associated to node %s. Nothing to power off." % nname)
             return False, nname
         else:
-            return self._power_off(nname, vmid)
+            self._add_task(self.POWER_OFF, str(vmid))
+            return True, nname
 
-    def _get_template(self, node_name, remove_node=None):
+    def _get_template(self, count, remove_nodes, add_nodes):
         inf_id = self._get_inf_id()
         headers = {'Accept': 'text/plain', 'Connection': 'close'}
         auth = self._get_auth_header()
@@ -494,49 +606,37 @@ class powermanager(PowerManager):
             return None
         else:
             templateo = yaml.load(output)
-            # Generate a name for the new WN
-            wn_template_name = "wn_%s" % node_name
+            node_name = self._find_wn_nodetemplate_name(templateo)
+            node_template = templateo['topology_template']['node_templates'][node_name]
 
-            if remove_node:
-                templateo['topology_template']['node_templates'][wn_template_name][
-                    'capabilities']['scalable']['properties']['count'] = 0
-                templateo['topology_template']['node_templates'][wn_template_name][
-                    'capabilities']['scalable']['properties']['removal_list'] = [remove_node]
+            if remove_nodes:
+                if count < len(remove_nodes):
+                    count = 1
+                node_template['capabilities']['scalable']['properties']['count'] = count - len(remove_nodes)
+                node_template['capabilities']['scalable']['properties']['removal_list'] = remove_nodes
             else:
-                # Add new node with the configured name
-                lrms_template_name = "lrms_%s" % node_name
-                lrms_node, compute_node = self._find_wn_nodetemplates(templateo)
-                compute_node['capabilities']['scalable']['properties']['count'] = 1
-
+                node_template['capabilities']['scalable']['properties']['count'] = count + len(add_nodes)
                 # Put the dns name
-                if 'endpoint' not in compute_node['capabilities']:
-                    compute_node['capabilities']['endpoint'] = {}
-                if 'properties' not in compute_node['capabilities']['endpoint']:
-                    compute_node['capabilities']['endpoint']['properties'] = {}
-                compute_node['capabilities']['endpoint']['properties']['dns_name'] = node_name
+                if 'endpoint' not in node_template['capabilities']:
+                    node_template['capabilities']['endpoint'] = {}
+                if 'properties' not in node_template['capabilities']['endpoint']:
+                    node_template['capabilities']['endpoint']['properties'] = {}
+                # TODO: see the dns_name issue
+                if len(add_nodes) == 1:
+                    node_template['capabilities']['endpoint']['properties']['dns_name'] = add_nodes[0]
+                else:
+                    node_template['capabilities']['endpoint']['properties']['dns_name'] = add_nodes
 
-                templateo['topology_template']['node_templates'][wn_template_name] = compute_node
-                for req in lrms_node['requirements']:
-                    if 'host' in req:
-                        req['host'] = wn_template_name
-                templateo['topology_template']['node_templates'][lrms_template_name] = lrms_node
+        return yaml.dump(templateo)
 
-        res = yaml.dump(templateo)
-        _LOGGER.debug("TOSCA TEMPLATE: %s" % res)
-        return res
-
-    def _find_wn_nodetemplates(self, template):
-        lrms_node = None
-        compute_node = None
+    def _find_wn_nodetemplate_name(self, template):
         try:
             for name, node in template['topology_template']['node_templates'].items():
                 if node['type'].startswith("tosca.nodes.indigo.LRMS.WorkerNode"):
-                    lrms_node = copy.deepcopy(template['topology_template']['node_templates'][name])
                     for req in node['requirements']:
                         if 'host' in req:
-                            compute_node = copy.deepcopy(template['topology_template']['node_templates'][req['host']])
-                            return lrms_node, compute_node
+                            return req['host']
         except Exception:
             _LOGGER.exception("Error trying to get the WN template.")
 
-        return lrms_node, compute_node
+        return None
