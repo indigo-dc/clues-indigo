@@ -51,8 +51,7 @@ class TestMesosPlugin(unittest.TestCase):
             "echo test", "test-ip", "error") == read_file_as_json("test-files/mesos-master-tasks.json")
 
     def test_curl_command_error(self):
-        with self.assertRaises(Exception):
-            mesos.curl_command("echo test", "test-ip", "Error")
+        mesos.curl_command("echo test", "test-ip", "Error")
 
     @mock.patch('mesos.curl_command')
     def test_obtain_mesos_jobs(self, mock_curl_command):
