@@ -30,7 +30,11 @@ class TestMesosPlugin(unittest.TestCase):
         assert vm.timestamp_recovered == 0
         assert vm.timestamp_created == 5
         assert vm.timestamp_seen == 5
-
+        
+    def test_powermanager_get_auth_header(self):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._auth_data = {'username':'paco', 'password':'12345'}
+        assert powermanager._get_auth_header(mock_pm) == {'Authorization': 'Basic cGFjbzoxMjM0NQ=='}
 
     def test_powermanager_power_on(self):
         mock_pm = MagicMock(powermanager)
