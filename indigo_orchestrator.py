@@ -545,7 +545,7 @@ class powermanager(PowerManager):
                 while not new_uuids and wait < timeout:
                     # Get the list of resources now to get the new vm added
                     resources = self._get_resources()
-                    current_uuids = [vm.vm_id for vm in vms]
+                    current_uuids = [vm.vm_id for vm in vms.values()]
                     for resource in resources:
                         if (resource['uuid'] != self._get_master_node_id(resources) and
                                 resource['uuid'] not in current_uuids):
