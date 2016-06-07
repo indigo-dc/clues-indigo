@@ -33,7 +33,7 @@ class TestMesosPlugin(unittest.TestCase):
     def test_powermanager_VmNode(self, mock_timer):
         mock_timer.return_value = 5
         vm = powermanager.VM_Node(1)
-        assert vm.vm_id == 1
+        assert vm.vm_id == "1"
         assert vm.timestamp_recovered == 0
         assert vm.timestamp_created == 5
         assert vm.timestamp_seen == 5
@@ -76,7 +76,6 @@ class TestMesosPlugin(unittest.TestCase):
         load_mvs_seen.return_value = {'vnode1': powermanager.VM_Node('ee6a8510-974c-411c-b8ff-71bb133148eb')}
         load_pending_tasks.return_value = []
         cpyutils_db_create.return_value = None
-        #get_resources_page.return_value = 200, read_file_as_string("test-files/orchestrator-resources.json")
         get_resources_page.side_effect = self.get_resources_page
         vms = powermanager()._get_vms()
         assert vms["vnode1"].timestamp_seen == 1.0
