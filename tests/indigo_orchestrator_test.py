@@ -191,6 +191,25 @@ class TestMesosPlugin(unittest.TestCase):
         
         assert delete_task.call_args_list == [call(task2)]
         assert power_off.call_args_list == [call(['task2'])]
+    
+    def test_power_off(self):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._modify_deployment.return_value = 200, 'test'
+        mock_pm._mvs_seen = {}        
+        assert powermanager._power_off(mock_pm, ['task2']) == True
+        
+    def test_power_off_error(self):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._modify_deployment.return_value = 404, 'test'
+        mock_pm._mvs_seen = {}        
+        assert powermanager._power_off(mock_pm, ['task2']) == False
+        
+    def test_power_off_exception(self):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._modify_deployment.side_effect = Exception()
+        mock_pm._mvs_seen = {}        
+        assert powermanager._power_off(mock_pm, ['task2']) == False
+        
 
 if __name__ == '__main__':
     unittest.main()
