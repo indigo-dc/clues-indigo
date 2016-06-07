@@ -1,5 +1,5 @@
 import unittest
-from indigo_orchestrator import powermanager
+from + import powermanager
 from mock import MagicMock, patch
 
 class TestMesosPlugin(unittest.TestCase):
@@ -35,7 +35,7 @@ class TestMesosPlugin(unittest.TestCase):
         mock_pm = MagicMock(powermanager)
         mock_pm._auth_data = {'username':'paco', 'password':'12345'}
         assert powermanager._get_auth_header(mock_pm) == {'Authorization': 'Basic cGFjbzoxMjM0NQ=='}
-
+        
     def test_powermanager_power_on(self):
         mock_pm = MagicMock(powermanager)
         mock_pm._mvs_seen = ["test1","test2","test3"]
