@@ -2,15 +2,18 @@ import unittest
 import os
 from indigo_orchestrator import powermanager
 from mock import MagicMock, Mock, patch, call
+import json
 
 from clueslib.node import Node, NodeInfo
 from cpyutils.db import DB_mysql
-import indigo_orchestrator
 
 def read_file_as_string(file_name):
     tests_path = os.path.dirname(os.path.abspath(__file__))
     abs_file_path = os.path.join(tests_path, file_name)
     return open(abs_file_path, 'r').read()
+
+def read_file_as_json(file_name):
+    return json.loads(read_file_as_string(file_name))
 
 class TestMesosPlugin(unittest.TestCase):
 
@@ -133,6 +136,14 @@ class TestMesosPlugin(unittest.TestCase):
         
         expected = [call('task1', 'POWER_ON'), call('POWER_OFF', 'task2')]
         assert mock_pm.Task.call_args_list == expected
+        
+    def test_load_mvs_seen(self):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._db = MagicMock(DB_mysql)
+        mock_pm._db.sql_query.return_value = True, None, [{'vnode1', 'ee6a8510-974c-411c-b8ff-71bb133148eb'}]
+        powermanager._load_mvs_seen(mock_pm)
+        assert mock_pm.VM_Node.call_count == 1
+        assert mock_pm.VM_Node.call_args_list == [call('ee6a8510-974c-411c-b8ff-71bb133148eb')]    
  
     @patch('indigo_orchestrator.powermanager._power_on')
     @patch('indigo_orchestrator.powermanager._delete_task') 
@@ -209,6 +220,56 @@ class TestMesosPlugin(unittest.TestCase):
         mock_pm._modify_deployment.side_effect = Exception()
         mock_pm._mvs_seen = {}        
         assert powermanager._power_off(mock_pm, ['task2']) == False
+        
+
+    @patch('indigo_orchestrator.powermanager._power_off')
+    @patch('indigo_orchestrator.powermanager._delete_task') 
+    @patch('cpyutils.eventloop.now')
+    @patch('cpyutils.db.DB.create_from_string')
+    @patch('indigo_orchestrator.powermanager._create_db')
+    @patch('indigo_orchestrator.powermanager._load_pending_tasks')
+    @patch('indigo_orchestrator.powermanager._load_mvs_seen')
+    @patch('indigo_orchestrator.powermanager._get_resources')
+    @patch('indigo_orchestrator.powermanager._get_deployment_status')
+    @patch('indigo_orchestrator.powermanager._modify_deployment')      
+    def test_power_on_timeout(self, modify_deployment, get_deployment_status, get_resources, load_mvs_seen,
+                       load_pending_tasks, create_db, cpyutils_db_create, now, delete_task, power_off):
+        
+        now.return_value = 1.0
+        create_db.return_value = True
+        load_mvs_seen.return_value = {'vnode1': powermanager.VM_Node('ee6a8510-974c-411c-b8ff-71bb133148eb')}
+        cpyutils_db_create.return_value = None
+        get_deployment_status.return_value = "CREATE_COMPLETE"
+        delete_task.return_value = True
+        power_off.return_value = True        
+        get_resources.return_value = read_file_as_json("test-files/get-resources-output.json")
+        modify_deployment.return_value = 200, 'test'
+        powermanager()._power_on('vnode1')
+        
+        
+    @patch('indigo_orchestrator.powermanager._add_mvs_seen')
+    @patch('indigo_orchestrator.powermanager._power_off')
+    @patch('indigo_orchestrator.powermanager._delete_task') 
+    @patch('cpyutils.eventloop.now')
+    @patch('cpyutils.db.DB.create_from_string')
+    @patch('indigo_orchestrator.powermanager._create_db')
+    @patch('indigo_orchestrator.powermanager._load_pending_tasks')
+    @patch('indigo_orchestrator.powermanager._load_mvs_seen')
+    @patch('indigo_orchestrator.powermanager._get_resources')
+    @patch('indigo_orchestrator.powermanager._get_deployment_status')
+    @patch('indigo_orchestrator.powermanager._modify_deployment')      
+    def test_power_on(self, modify_deployment, get_deployment_status, get_resources, load_mvs_seen,
+                       load_pending_tasks, create_db, cpyutils_db_create, now, delete_task, power_off, add_mvs_seen):
+        now.return_value = 1.0
+        create_db.return_value = True
+        load_mvs_seen.return_value = {'vnode1': powermanager.VM_Node('ee6a8510-974c-411c-b8ff-71bb133148aa')}
+        cpyutils_db_create.return_value = None
+        get_deployment_status.return_value = "CREATE_COMPLETE"
+        delete_task.return_value = True
+        power_off.return_value = True        
+        get_resources.return_value = read_file_as_json("test-files/get-resources-output.json")
+        modify_deployment.return_value = 200, 'test'
+        print powermanager()._power_on('vnode1')        
         
 
 if __name__ == '__main__':
