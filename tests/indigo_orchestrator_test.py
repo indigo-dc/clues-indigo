@@ -5,6 +5,8 @@ from mock import MagicMock, Mock, patch, call
 import json
 from StringIO import StringIO
 import logging
+import httplib
+import yaml
 
 from clueslib.node import Node, NodeInfo
 from cpyutils.db import DB_mysql
@@ -16,6 +18,9 @@ def read_file_as_string(file_name):
 
 def read_file_as_json(file_name):
     return json.loads(read_file_as_string(file_name))
+
+def read_file_as_yaml(file_name):
+    return yaml.load(read_file_as_string(file_name))
 
 class TestMesosPlugin(unittest.TestCase):
     
@@ -92,7 +97,7 @@ class TestMesosPlugin(unittest.TestCase):
         mock_pm._mvs_seen = ["test1", "test2", "test3"]
         mock_pm._INDIGO_ORCHESTRATOR_MAX_INSTANCES = 5
         
-        self.assertEquals( powermanager.power_on(mock_pm, "test2"), (True, 'test2'))
+        self.assertEquals(powermanager.power_on(mock_pm, "test2"), (True, 'test2'))
 
     def get_resources_page(self, page=0):
         return 200, read_file_as_string("test-files/orchestrator-resources-p%d.json" % page)
@@ -154,7 +159,7 @@ class TestMesosPlugin(unittest.TestCase):
         mock_pm._db.sql_query.return_value = False, None, {}
        
         self.assertEquals(powermanager._load_pending_tasks(mock_pm), [])
-        self.assertIn( "Error trying to load INDIGO orchestrator tasks data", self.log.getvalue())   
+        self.assertIn("Error trying to load INDIGO orchestrator tasks data", self.log.getvalue())   
         
     def test_load_pending_tasks(self):
         mock_pm = MagicMock(powermanager)
@@ -202,8 +207,8 @@ class TestMesosPlugin(unittest.TestCase):
         
         self.assertEquals(delete_task.call_args_list, [call(task1)])        
         self.assertEquals(power_on.call_args_list, [call('task1')])
-        self.assertIn( "Processing pending tasks:", self.log.getvalue())   
-        self.assertIn( "Task Power On on task1 correctly processed", self.log.getvalue())          
+        self.assertIn("Processing pending tasks:", self.log.getvalue())   
+        self.assertIn("Task Power On on task1 correctly processed", self.log.getvalue())          
         
     @patch('indigo_orchestrator.powermanager._power_off')
     @patch('indigo_orchestrator.powermanager._delete_task') 
@@ -233,8 +238,8 @@ class TestMesosPlugin(unittest.TestCase):
         
         self.assertEquals(delete_task.call_args_list, [call(task2)])
         self.assertEquals(power_off.call_args_list, [call(['task2'])])
-        self.assertIn( "Processing pending tasks:", self.log.getvalue())   
-        self.assertIn( "Task Power Off on task2 correctly processed", self.log.getvalue())   
+        self.assertIn("Processing pending tasks:", self.log.getvalue())   
+        self.assertIn("Task Power Off on task2 correctly processed", self.log.getvalue())   
     
     def test_power_off(self):
         mock_pm = MagicMock(powermanager)
@@ -242,7 +247,7 @@ class TestMesosPlugin(unittest.TestCase):
         mock_pm._mvs_seen = {}        
        
         self.assertEquals(powermanager._power_off(mock_pm, ['task2']), True)
-        self.assertIn( "Nodes ['task2'] successfully deleted", self.log.getvalue())        
+        self.assertIn("Nodes ['task2'] successfully deleted", self.log.getvalue())        
         
     def test_power_off_error(self):
         mock_pm = MagicMock(powermanager)
@@ -250,7 +255,7 @@ class TestMesosPlugin(unittest.TestCase):
         mock_pm._mvs_seen = {}        
 
         self.assertEquals(powermanager._power_off(mock_pm, ['task2']), False)
-        self.assertIn( "ERROR deleting nodes: ['task2']: test", self.log.getvalue())
+        self.assertIn("ERROR deleting nodes: ['task2']: test", self.log.getvalue())
         
     def test_power_off_exception(self):
         mock_pm = MagicMock(powermanager)
@@ -258,8 +263,8 @@ class TestMesosPlugin(unittest.TestCase):
         mock_pm._mvs_seen = {} 
                
         self.assertEquals(powermanager._power_off(mock_pm, ['task2']), False) 
-        self.assertIn( "Error powering off nodes ['task2']", self.log.getvalue())
-        
+        self.assertIn("Error powering off nodes ['task2']", self.log.getvalue())
+    '''    
     @patch('indigo_orchestrator.powermanager._power_off')
     @patch('indigo_orchestrator.powermanager._delete_task') 
     @patch('cpyutils.eventloop.now')
@@ -285,7 +290,7 @@ class TestMesosPlugin(unittest.TestCase):
         powermanager()._power_on('vnode1')
         self.assertIn( "Node vnode1 successfully created", self.log.getvalue())
         self.assertIn( "Trying to get the uuids of the new node and get 0 uuids", self.log.getvalue())      
-
+    '''
         
     @patch('indigo_orchestrator.powermanager._add_mvs_seen')
     @patch('indigo_orchestrator.powermanager._power_off')
@@ -309,8 +314,8 @@ class TestMesosPlugin(unittest.TestCase):
         power_off.return_value = True        
         get_resources.return_value = read_file_as_json("test-files/get-resources-output.json")
         modify_deployment.return_value = 200, 'test'
-        self.assertEquals( powermanager()._power_on('vnode1'), True)
-        self.assertIn( "Node vnode1 successfully created", self.log.getvalue())
+        self.assertEquals(powermanager()._power_on('vnode1'), True)
+        self.assertIn("Node vnode1 successfully created", self.log.getvalue())
         
     @patch('httplib.HTTPSConnection')  
     def test_get_https_connection(self, https_connection):
@@ -320,34 +325,132 @@ class TestMesosPlugin(unittest.TestCase):
         self.assertEquals(https_connection.call_args_list, [call('172.30.15.43:8080')])
         
     @patch('httplib.HTTPConnection')  
-    def test_get_http_connection(self, https_connection):
+    def test_get_http_connection(self, http_connection):
         mock_pm = MagicMock(powermanager)
         mock_pm._INDIGO_ORCHESTRATOR_URL = "http://172.30.15.43:8080"
         powermanager._get_http_connection(mock_pm)
-        self.assertEquals(https_connection.call_args_list, [call('172.30.15.43:8080')])
+        self.assertEquals(http_connection.call_args_list, [call('172.30.15.43:8080')])
         
     def test_get_resources_error(self):
         mock_pm = MagicMock(powermanager)
         mock_pm._get_resources_page.return_value = 404, 'test'
-        self.assertEquals( powermanager._get_resources(mock_pm), [])
-        self.assertIn( "ERROR getting deployment info: test", self.log.getvalue())
+        self.assertEquals(powermanager._get_resources(mock_pm), [])
+        self.assertIn("ERROR getting deployment info: test", self.log.getvalue())
         
     def test_create_db(self):
         mock_pm = MagicMock(powermanager)
         mock_pm._db = MagicMock();
-        mock_pm._db.sql_query.return_value = (True, "","")
+        mock_pm._db.sql_query.return_value = (True, "", "")
         powermanager._create_db(mock_pm)
         
         call1 = call('CREATE TABLE IF NOT EXISTS orchestrator_vms(node_name varchar(128) PRIMARY KEY, uuid varchar(128))', True)
         call2 = call('CREATE TABLE IF NOT EXISTS orchestrator_tasks(node_name varchar(128), operation int)', True)
-        self.assertEquals( mock_pm._db.sql_query.call_args_list, [call1, call2])
+        self.assertEquals(mock_pm._db.sql_query.call_args_list, [call1, call2])
         
-    def test__create_db_error(self):
+    def test_create_db_error(self):
         mock_pm = MagicMock(powermanager)
         mock_pm._db = MagicMock();
         powermanager._create_db(mock_pm)
-        self.assertIn( "Error creating INDIGO orchestrator plugin DB", self.log.getvalue())
+        self.assertIn("Error creating INDIGO orchestrator plugin DB", self.log.getvalue())
+     
+    @patch('httplib.HTTPConnection')
+    def test_get_deployment_status_error(self, http_connection):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._get_inf_id.return_value = 'ORCH_ID'
+        mock_pm._get_auth_header.return_value = None
+        mock_pm._get_http_connection.return_value = http_connection
+        powermanager._get_deployment_status(mock_pm)
+
+        self.assertEquals(http_connection.request.call_args_list,
+                         [call('GET', '/orchestrator/deployments/ORCH_ID',
+                               headers={'Connection': 'close', 'Accept': 'application/json'})])
+        self.assertIn("ERROR getting deployment status:", self.log.getvalue())
         
+        
+    @patch('httplib.HTTPConnection')
+    def test_get_deployment_status(self, http_connection):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._get_inf_id.return_value = 'ORCH_ID'
+        mock_pm._get_auth_header.return_value = None
+        mock_pm._get_http_connection.return_value = http_connection
+        
+        mock_response = MagicMock(httplib.HTTPResponse)
+        mock_response.status = 200
+        mock_response.read.return_value = '{"status" : "test_stat"}'
+        http_connection.getresponse.return_value = mock_response
+        
+        self.assertEquals(powermanager._get_deployment_status(mock_pm), "test_stat")
+        self.assertEquals(http_connection.request.call_args_list,
+                         [call('GET', '/orchestrator/deployments/ORCH_ID',
+                               headers={'Connection': 'close', 'Accept': 'application/json'})])
+        self.assertIn("Deployment in status: test_stat", self.log.getvalue())
+        
+    def test_delete_mvs_seen(self):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._mvs_seen = {'test_name_0' : '0', 'test_name_1' : '1', 'test_name_2' : '2'}
+        mock_pm._db = MagicMock();
+        mock_pm._db.sql_query.return_value = (True, "", "")
+        powermanager._delete_mvs_seen(mock_pm, 'test_name_1')
+        
+        self.assertEquals(mock_pm._mvs_seen, {'test_name_0': '0', 'test_name_2': '2'})
+        self.assertEquals(mock_pm._db.sql_query.call_args_list,
+                          [call("DELETE FROM orchestrator_vms WHERE node_name = 'test_name_1'", True)])
+
+    def test_delete_mvs_seen_error(self):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._mvs_seen = {'test_name_0' : '0', 'test_name_1' : '1', 'test_name_2' : '2'}
+        powermanager._delete_mvs_seen(mock_pm, 'test_name_1')
+        self.assertIn("Error trying to save INDIGO orchestrator plugin data", self.log.getvalue())
+        
+    def test_add_mvs_seen(self):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._mvs_seen = {'test_name_0' : '0'}
+        mock_pm._db = MagicMock();
+        mock_pm._db.sql_query.return_value = (True, "", "")
+        mock_vm = MagicMock()
+        mock_vm.vm_id = 1
+        powermanager._add_mvs_seen(mock_pm, 'test_name_1', mock_vm)
+        
+        self.assertEquals(mock_pm._mvs_seen, {'test_name_0': '0', 'test_name_1': mock_vm})
+        self.assertEquals(mock_pm._db.sql_query.call_args_list,
+                          [call("INSERT INTO orchestrator_vms VALUES ('test_name_1', '1')", True)])
+        
+    def test_add_mvs_seen_error(self):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._mvs_seen = {'test_name_0' : '0'}
+        powermanager._add_mvs_seen(mock_pm, 'test_name_1', '1')
+        self.assertIn("Error trying to save INDIGO orchestrator plugin data", self.log.getvalue())        
+
+    @patch('httplib.HTTPConnection')
+    def test_modify_deployment(self, http_connection):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._get_inf_id.return_value = 'TEST_ID'
+        
+        mock_response = MagicMock(httplib.HTTPResponse)
+        mock_response.status = 200
+        mock_response.read.return_value = '{"status" : "test_stat"}'
+        http_connection.getresponse.return_value = mock_response
+        
+        mock_pm._get_auth_header.return_value = None
+        mock_pm._get_http_connection.return_value = http_connection
+        mock_pm._get_template.return_value = 'test_template\n"test_parser"'
+        
+        self.assertEquals(powermanager._modify_deployment(mock_pm, ['1', '2']), (200, '{"status" : "test_stat"}'))
+        self.assertIn('test_template\n"test_parser"', self.log.getvalue())
+        self.assertEquals(http_connection.putrequest.call_args_list,
+                          [call('PUT', '/orchestrator/deployments/TEST_ID')])
+        self.assertEquals(http_connection.endheaders.call_args_list, 
+                          [call('{ "template": "test_template\\n\\"test_parser\\"" }')])
+        
+    def test_find_wn_nodetemplate_name(self):
+        mock_pm = MagicMock(powermanager)
+        template = read_file_as_yaml('test-files/tosca_template.yaml')
+        self.assertEquals(powermanager._find_wn_nodetemplate_name(mock_pm, template), 'torque_wn')
+        
+    def test_find_wn_nodetemplate_name_error(self):
+        mock_pm = MagicMock(powermanager)
+        powermanager._find_wn_nodetemplate_name(mock_pm, '')
+        self.assertIn('Error trying to get the WN template', self.log.getvalue())
         
 if __name__ == '__main__':
     unittest.main()
