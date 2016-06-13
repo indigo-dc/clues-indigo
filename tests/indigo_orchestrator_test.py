@@ -264,7 +264,7 @@ class TestMesosPlugin(unittest.TestCase):
                
         self.assertEquals(powermanager._power_off(mock_pm, ['task2']), False) 
         self.assertIn("Error powering off nodes ['task2']", self.log.getvalue())
-    '''    
+
     @patch('indigo_orchestrator.powermanager._power_off')
     @patch('indigo_orchestrator.powermanager._delete_task') 
     @patch('cpyutils.eventloop.now')
@@ -290,7 +290,6 @@ class TestMesosPlugin(unittest.TestCase):
         powermanager()._power_on('vnode1')
         self.assertIn( "Node vnode1 successfully created", self.log.getvalue())
         self.assertIn( "Trying to get the uuids of the new node and get 0 uuids", self.log.getvalue())      
-    '''
         
     @patch('indigo_orchestrator.powermanager._add_mvs_seen')
     @patch('indigo_orchestrator.powermanager._power_off')
@@ -451,6 +450,104 @@ class TestMesosPlugin(unittest.TestCase):
         mock_pm = MagicMock(powermanager)
         powermanager._find_wn_nodetemplate_name(mock_pm, '')
         self.assertIn('Error trying to get the WN template', self.log.getvalue())
+
+    @patch('httplib.HTTPConnection')        
+    def test_get_template_no_node_changes(self,http_connection):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._get_inf_id.return_value = 'TEST_ID'
+        mock_pm._get_auth_header.return_value = None
+        
+        mock_response = MagicMock(httplib.HTTPResponse)
+        mock_response.status = 200
+        mock_response.read.return_value = read_file_as_string('test-files/tosca_template.yaml')
+        http_connection.getresponse.return_value = mock_response
+        mock_pm._get_http_connection.return_value = http_connection
+        
+        mock_pm._find_wn_nodetemplate_name.return_value = 'torque_wn'
+        self.assertEquals(powermanager._get_template(mock_pm, 0, [], []),
+                          read_file_as_string('test-files/template_result_no_node_changes'))
+        self.assertEquals(http_connection.request.call_args_list, 
+                          [call('GET', '/orchestrator/deployments/TEST_ID/template', 
+                                headers={'Connection': 'close', 'Accept': 'text/plain'})])
+        
+    @patch('httplib.HTTPConnection')        
+    def test_get_template_error(self,http_connection):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._get_inf_id.return_value = 'TEST_ID'
+        mock_pm._get_auth_header.return_value = None
+        
+        mock_response = MagicMock(httplib.HTTPResponse)
+        mock_response.status = 404
+        mock_response.read.return_value = 'test'
+        http_connection.getresponse.return_value = mock_response
+        mock_pm._get_http_connection.return_value = http_connection
+        
+        mock_pm._find_wn_nodetemplate_name.return_value = 'torque_wn'
+        powermanager._get_template(mock_pm, 0, [], [])
+        
+        self.assertIn('ERROR getting deployment template: test', self.log.getvalue())
+        
+    @patch('httplib.HTTPConnection')        
+    def test_get_template_add_one_node(self,http_connection):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._get_inf_id.return_value = 'TEST_ID'
+        mock_pm._get_auth_header.return_value = None
+        
+        mock_response = MagicMock(httplib.HTTPResponse)
+        mock_response.status = 200
+        mock_response.read.return_value = read_file_as_string('test-files/tosca_template.yaml')
+        http_connection.getresponse.return_value = mock_response
+        mock_pm._get_http_connection.return_value = http_connection
+        
+        mock_pm._find_wn_nodetemplate_name.return_value = 'torque_wn'
+        
+        self.assertEquals(powermanager._get_template(mock_pm, 0, [], ['test_node']),
+                          read_file_as_string('test-files/template_result_add_one_node'))        
+        self.assertEquals(http_connection.request.call_args_list, 
+                          [call('GET', '/orchestrator/deployments/TEST_ID/template', 
+                                headers={'Connection': 'close', 'Accept': 'text/plain'})])
+        
+    @patch('httplib.HTTPConnection')        
+    def test_get_template_add_several_nodes(self,http_connection):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._get_inf_id.return_value = 'TEST_ID'
+        mock_pm._get_auth_header.return_value = None
+        
+        mock_response = MagicMock(httplib.HTTPResponse)
+        mock_response.status = 200
+        mock_response.read.return_value = read_file_as_string('test-files/tosca_template.yaml')
+        http_connection.getresponse.return_value = mock_response
+        mock_pm._get_http_connection.return_value = http_connection
+        
+        mock_pm._find_wn_nodetemplate_name.return_value = 'torque_wn'
+        
+        self.assertEquals(powermanager._get_template(mock_pm, 0, [], 
+                                                     ['test_node_1', 'test_node_1','test_node_2']),
+                          read_file_as_string('test-files/template_result_add_several_nodes')) 
+        
+        self.assertEquals(http_connection.request.call_args_list, 
+                          [call('GET', '/orchestrator/deployments/TEST_ID/template', 
+                                headers={'Connection': 'close', 'Accept': 'text/plain'})])
+        
+    @patch('httplib.HTTPConnection')        
+    def test_get_template_remove_nodes(self,http_connection):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._get_inf_id.return_value = 'TEST_ID'
+        mock_pm._get_auth_header.return_value = None
+        
+        mock_response = MagicMock(httplib.HTTPResponse)
+        mock_response.status = 200
+        mock_response.read.return_value = read_file_as_string('test-files/tosca_template.yaml')
+        http_connection.getresponse.return_value = mock_response
+        mock_pm._get_http_connection.return_value = http_connection
+        
+        mock_pm._find_wn_nodetemplate_name.return_value = 'torque_wn'
+        
+        self.assertEquals(powermanager._get_template(mock_pm, 1, ['test_node_1', 'test_node_1'], []),
+                          read_file_as_string('test-files/template_result_remove_nodes'))  
+        self.assertEquals(http_connection.request.call_args_list, 
+                          [call('GET', '/orchestrator/deployments/TEST_ID/template', 
+                                headers={'Connection': 'close', 'Accept': 'text/plain'})])                     
         
 if __name__ == '__main__':
     unittest.main()
