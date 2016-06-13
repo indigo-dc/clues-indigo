@@ -498,8 +498,7 @@ class powermanager(PowerManager):
 
         template = self._get_template(len(vms), remove_nodes, add_nodes)
         _LOGGER.debug("template: " + template)
-        body = '{ "template": "%s" }' % template.replace(
-            '"', '\"').replace('\n', '\\n')
+        body = '{ "template": "%s" }' % template.replace('"', '\\"').replace('\n', '\\n')
 
         conn.putheader('Content-Length', len(body))
         conn.endheaders(body)
@@ -545,7 +544,7 @@ class powermanager(PowerManager):
                 while not new_uuids and wait < timeout:
                     # Get the list of resources now to get the new vm added
                     resources = self._get_resources()
-                    current_uuids = [vm.vm_id for vm in vms]
+                    current_uuids = [vm.vm_id for vm in vms.values()]
                     for resource in resources:
                         if (resource['uuid'] != self._get_master_node_id(resources) and
                                 resource['uuid'] not in current_uuids):

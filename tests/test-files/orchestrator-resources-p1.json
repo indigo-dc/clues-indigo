@@ -1,0 +1,55 @@
+{
+    "links": [
+        {
+            "rel": "self",
+            "href": "http://localhost:8080/orchestrator/deployments/4f2657f5-adfb-43da-a312-5f3f2bb7e55c/resources"
+        }
+    ],
+    "content": [
+        {
+            "uuid": "e3437b35-edac-4500-a455-dca7e58658ed",
+            "creationTime": "2016-05-30T07:10+0000",
+            "state": "STARTED",
+            "toscaNodeType": "tosca.nodes.indigo.LRMS.WorkerNode.Torque",
+            "toscaNodeName": "wn_node",
+            "requiredBy": [
+            ],
+            "links": [
+                {
+                    "rel": "deployment",
+                    "href": "http://localhost:8080/orchestrator/deployments/4f2657f5-adfb-43da-a312-5f3f2bb7e55c"
+                },
+                {
+                    "rel": "self",
+                    "href": "http://localhost:8080/orchestrator/deployments/4f2657f5-adfb-43da-a312-5f3f2bb7e55c/resources/e3437b35-edac-4500-a455-dca7e58658ed"
+                }
+            ]
+        },
+        {
+            "uuid": "ee6a8510-974c-411c-b8ff-71bb133148eb",
+            "creationTime": "2016-05-30T07:22+0000",
+            "state": "CREATING",
+            "toscaNodeType": "tosca.nodes.indigo.Compute",
+            "toscaNodeName": "torque_wn",
+            "requiredBy": [
+            ],
+            "links": [
+                {
+                    "rel": "deployment",
+                    "href": "http://localhost:8080/orchestrator/deployments/4f2657f5-adfb-43da-a312-5f3f2bb7e55c"
+                },
+                {
+                    "rel": "self",
+                    "href": "http://localhost:8080/orchestrator/deployments/4f2657f5-adfb-43da-a312-5f3f2bb7e55c/resources/ee6a8510-974c-411c-b8ff-71bb133148eb"
+                }
+            ]
+        }
+    ],
+    "page": {
+        "size": 3,
+        "totalElements": 5,
+        "totalPages": 2,
+        "number": 1
+    }
+}
+
