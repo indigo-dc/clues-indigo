@@ -498,8 +498,7 @@ class powermanager(PowerManager):
 
         template = self._get_template(len(vms), remove_nodes, add_nodes)
         _LOGGER.debug("template: " + template)
-        body = '{ "template": "%s" }' % template.replace(
-            '"', '\"').replace('\n', '\\n')
+        body = '{ "template": "%s" }' % template.replace('"', '\\"').replace('\n', '\\n')
 
         conn.putheader('Content-Length', len(body))
         conn.endheaders(body)
