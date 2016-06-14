@@ -64,7 +64,6 @@ def curl_command(command, server_ip, error_message, is_json=True):
         if result:
             message += ';COMMAND_OUTPUT=' + result.rstrip('\n') + ''
         _LOGGER.error(message)
-        #raise Exception(message)
 
 
 def infer_mesos_job_state(job_state):
@@ -125,22 +124,18 @@ class lrms(LRMS):
 
     def _obtain_mesos_jobs(self):
         '''Obtains the list of jobs in Mesos'''
-        #_LOGGER.debug("Obtaining mesos jobs")
         return curl_command(self._jobs, self._server_ip, "Could not obtain information about MESOS jobs")
 
     def _obtain_mesos_nodes(self):
         '''Obtains the list of nodes in Mesos'''
-        #_LOGGER.debug("Obtaining mesos nodes")
         return curl_command(self._nodes, self._server_ip, "Could not obtain information about MESOS nodes")
 
     def _obtain_chronos_jobs(self):
         '''Obtains the list of jobs in Chronos'''
-        #_LOGGER.debug("Obtaining chronos jobs")
         return curl_command(self._chronos, self._server_ip, "Could not obtain information about Chronos jobs")
 
     def _obtain_chronos_jobs_state(self):
         '''Obtains the list of states for the jobs in Chronos'''
-        #_LOGGER.debug("Obtaining chronos jobs states")        
         return curl_command(self._chronos_state, self._server_ip,
                             "Could not obtain information about the state of the Chronos jobs", False)
 
@@ -151,12 +146,10 @@ class lrms(LRMS):
 
     def _obtain_mesos_state(self):
         '''Obtains the state of the Mesos server'''
-        #_LOGGER.debug("Obtaining mesos state")
         return curl_command(self._state, self._server_ip, "Could not obtain information about MESOS state")
 
     def _obtain_mesos_used_nodes(self):
         '''Identifies the nodes that are in "USED" state (jobs in state "TASK_RUNNING")'''
-        #_LOGGER.debug("Obtaining mesos used nodes")
         mesos_jobs = self._obtain_mesos_jobs()
         used_nodes = []
 
@@ -170,7 +163,6 @@ class lrms(LRMS):
 
     def _obtain_cpu_mem_used_in_mesos_node(self, slave_id):
         ''' Obtains the mem and cpu used by the mesos_job that is in execution in the node with id 'slave_id' '''
-        #_LOGGER.debug("Obtaining resources used in mesos nodes")        
         used_cpu = 0
         used_mem = 0
         mesos_jobs = self._obtain_mesos_jobs()
@@ -185,7 +177,6 @@ class lrms(LRMS):
 
     def _obtain_chronos_jobs_nodes(self, job_id):
         '''Method to obtain the slaves' hostnames that are executing chronos jobs'''
-        #_LOGGER.debug("Obtaining chronos job nodes")
         mesos_jobs = self._obtain_mesos_jobs()
         chronos_nodes_hostname = []
 
@@ -203,7 +194,6 @@ class lrms(LRMS):
 
     def _obtain_chronos_job_state(self, job_id):
         '''Given a job id, calls Chronos to know the state of that job'''
-        #_LOGGER.debug("Obtaining chronos job state")
         chronos_jobs = self._obtain_chronos_jobs_state()
         if chronos_jobs:
             parsed_chronos_jobs = chronos_jobs.split("\n")
@@ -217,7 +207,6 @@ class lrms(LRMS):
 
     def _update_job_info_list(self, jobinfolist, cpus_per_task, memory, numnodes, job_id, nodes, state):
         # Use the fake queue
-        #_LOGGER.debug("Updating job info list")
         queue = '"default" in queues'
         resources = ResourcesNeeded(cpus_per_task, memory, [queue], numnodes)
         job_info = JobInfo(resources, job_id, nodes)
@@ -227,7 +216,6 @@ class lrms(LRMS):
 
     def _get_chronos_jobinfolist(self):
         '''Method in charge of monitoring the chronos_job queue of Chronos'''
-        #_LOGGER.debug("Updating job info list")
         jobinfolist = []
         chronos_jobs = self._obtain_chronos_jobs()
 
