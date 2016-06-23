@@ -236,8 +236,11 @@ class powermanager(PowerManager):
                     if status in ["ERROR"]:
                         # This VM is in a "terminal" state remove it from the
                         # infrastructure
+                        msg = ""
+                        if 'statusReason' in resource:
+                            msg = resource['statusReason']
                         _LOGGER.error("VM with id %s is in state: %s, msg: %s. Powering off." % (
-                            vm.vm_id, status, resource['statusReason']))
+                            vm.vm_id, status, msg))
                         self._add_task(self.POWER_OFF, vm.vm_id)
                     elif status in ["DELETING"]:
                         _LOGGER.debug("VM with id %s is in state: %s. Ignoring." % (
@@ -310,7 +313,7 @@ class powermanager(PowerManager):
         # Possible status
         # CREATE_IN_PROGRESS, CREATE_COMPLETE, CREATE_FAILED, UPDATE_IN_PROGRESS, UPDATE_COMPLETE
         # UPDATE_FAILED, DELETE_IN_PROGRESS, DELETE_COMPLETE, DELETE_FAILED, UNKNOWN
-        if status not in ["CREATE_COMPLETE", "UPDATE_COMPLETE", "DELETE_COMPLETE"]:
+        if status in ["CREATE_IN_PROGRESS", "UPDATE_IN_PROGRESS", "DELETE_IN_PROGRESS"]:
             _LOGGER.debug("The deployment is in an unmodifiable state do not process tasks.")
             return
 
