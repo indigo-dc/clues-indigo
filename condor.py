@@ -56,22 +56,18 @@ def infer_clues_job_state(state):
         return clueslib.request.Request.ATTENDED
 
 def get_worker_nodes_list_from_Startd():
-    worker_nodes = []
-    collector = htcondor.Collector()
-    try:
-        worker_nodes = collector.locateAll(htcondor.DaemonTypes.Startd)
-    except:
-        worker_nodes = []
-    return worker_nodes
+    return get_condor_daemons(htcondor.DaemonTypes.Startd)
 
 def get_schedulers_list_from_Schedd():
+    return get_condor_daemons(htcondor.DaemonTypes.Schedd)
+
+def get_condor_daemons(daemon_type):
     collector = htcondor.Collector()
     try:
-        schedulers = collector.locateAll(htcondor.DaemonTypes.Schedd)
+        daemons = collector.locateAll(daemon_type)
     except:
-        schedulers = []
-    return schedulers
-
+        daemons = []
+    return daemons
 
 class lrms(clueslib.platform.LRMS):
     
@@ -82,12 +78,6 @@ class lrms(clueslib.platform.LRMS):
          
     def get_nodeinfolist(self):
         nodeinfolist = {}
-        worker_nodes = []
-        #collector = htcondor.Collector()
-        #try: 
-        #    worker_nodes = collector.locateAll(htcondor.DaemonTypes.Startd)
-        #except: 
-        #    worker_nodes = []
         worker_nodes = get_worker_nodes_list_from_Startd()
         if len(worker_nodes) > 0:
             for worker_node in worker_nodes:
@@ -139,10 +129,6 @@ class lrms(clueslib.platform.LRMS):
                         memory =  0
                     memory_free = memory
                     keywords['hostname'] = TypedClass.auto(name)
-                    #try:
-                    #    schedulers = collector.locateAll(htcondor.DaemonTypes.Schedd)
-                    #except: 
-                    #    schedulers = []
                     schedulers = get_schedulers_list_from_Schedd()
                     if len(schedulers) > 0:
                         for scheduler in schedulers:
@@ -209,12 +195,7 @@ class lrms(clueslib.platform.LRMS):
     
     def get_jobinfolist(self):
         jobinfolist = []
-        schedulers = []
-        collector = htcondor.Collector()
-        try: 
-            schedulers = collector.locateAll(htcondor.DaemonTypes.Schedd)
-        except: 
-            schedulers = []
+        schedulers = get_schedulers_list_from_Schedd()
         if len(schedulers) > 0:
             for scheduler in schedulers:
                 jobs_scheduled = htcondor.Schedd(scheduler)
