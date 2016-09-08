@@ -13,10 +13,10 @@ Therefore, this repository includes the following plugins:
 
 Quick testing
 -------------------------
-To test the elasticity capabilities we offer a prepared docker image.
-The docker container **grycap/jenkins:ubuntu14.04-clues-indigo-ec3** repository contains all the libraries and environment variables needed to test the plugins.
-This container uses [EC3](http://servproject.i3m.upv.es/ec3/) to deploy a cluster with clues integrated.
-To learn more about the EC3 usage you can check the [documentation](http://ec3.readthedocs.io/en/devel/).
+To test the elasticity capabilities we offer a prepared docker image.  
+The docker container **grycap/jenkins:ubuntu14.04-clues-indigo-ec3** repository contains all the libraries and environment variables needed to test the plugins.  
+This container uses [EC3](http://servproject.i3m.upv.es/ec3/) to deploy a cluster with clues integrated.  
+To learn more about the EC3 usage you can check the [documentation](http://ec3.readthedocs.io/en/devel/).  
 
 ### Usage
 To run the docker container:
@@ -27,7 +27,7 @@ then inside the container you can launch, for example, a mesos cluster:
 ```
 ./ec3 launch clues-test mesos docker ubuntu14-ramses -a auth.dat -u http://servproject.i3m.upv.es:8899
 ```
-with this last command we are telling EC3 to launch cluster named **clues-test** that uses the **mesos** plugin and must have **docker** installed.
+with this last command we are telling EC3 to launch cluster named **clues-test** that uses the **mesos** plugin and must have **docker** installed.  
 The template used is specified in the file **ubuntu14-ramses** and the authorization file **auth.dat** must have the required users and passwords.
 
 Info about the launch command, system templates, authorization files and more is available [here](http://ec3.readthedocs.io/en/devel/).
