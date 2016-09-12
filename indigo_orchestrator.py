@@ -21,6 +21,8 @@ Created on 26/1/2015
 @author: micafer
 '''
 
+import datetime
+import re
 import yaml
 import time
 import json
@@ -88,7 +90,8 @@ class powermanager(PowerManager):
                 "INDIGO_ORCHESTRATOR_FORGET_MISSING_VMS": 30,
                 "INDIGO_ORCHESTRATOR_DROP_FAILING_VMS": 30,
                 "INDIGO_ORCHESTRATOR_DB_CONNECTION_STRING": "sqlite:///var/lib/clues2/clues.db",
-                "INDIGO_ORCHESTRATOR_PAGE_SIZE": 20
+                "INDIGO_ORCHESTRATOR_PAGE_SIZE": 20,
+                "INDIGO_ORCHESTRATOR_AUTH_DATA": ""
             }
         )
 
@@ -98,10 +101,9 @@ class powermanager(PowerManager):
         self._INDIGO_ORCHESTRATOR_FORGET_MISSING_VMS = config_indigo.INDIGO_ORCHESTRATOR_FORGET_MISSING_VMS
         self._INDIGO_ORCHESTRATOR_DROP_FAILING_VMS = config_indigo.INDIGO_ORCHESTRATOR_DROP_FAILING_VMS
         self._INDIGO_ORCHESTRATOR_PAGE_SIZE = config_indigo.INDIGO_ORCHESTRATOR_PAGE_SIZE
+        self._auth_data = {'token' : config_indigo.INDIGO_ORCHESTRATOR_AUTH_DATA }
 
-        # TODO: to specify the auth data to access the orchestrator
-        self._auth_data = None
-
+        self._refresh_time_diff = 300
         self._inf_id = None
         self._master_node_id = None
         # Structure for the recovery of nodes
@@ -113,13 +115,13 @@ class powermanager(PowerManager):
 
     def _get_auth_header(self):
         auth_header = None
-        # This is an example of the header to add
-        # other typical option "X-Auth-Token"
         if self._auth_data and 'username' in self._auth_data and 'password' in self._auth_data:
             passwd = self._auth_data['password']
             user = self._auth_data['username']
             auth_header = {'Authorization': 'Basic ' +
                            string.strip(base64.encodestring(user + ':' + passwd))}
+        elif self._auth_data and 'token' in self._auth_data:
+            auth_header = {'Authorization': 'Bearer %s' % self._auth_data['token']}
 
         return auth_header
 
@@ -132,10 +134,17 @@ class powermanager(PowerManager):
 
         url = urlparse(self._INDIGO_ORCHESTRATOR_URL)
 
+        server = url[1]
+        port = 80
+        if url[1].find(":") != -1:
+            parts = url[1].split(":")
+            server = parts[0]
+            port = int(parts[1])
+
         if url[0] == 'https':
-            conn = httplib.HTTPSConnection(url[1])
+            conn = httplib.HTTPSConnection(server, port)
         elif url[0] == 'http':
-            conn = httplib.HTTPConnection(url[1])
+            conn = httplib.HTTPConnection(server, port)
 
         return conn
 
