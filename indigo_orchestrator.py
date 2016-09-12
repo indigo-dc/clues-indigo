@@ -101,7 +101,7 @@ class powermanager(PowerManager):
         self._INDIGO_ORCHESTRATOR_FORGET_MISSING_VMS = config_indigo.INDIGO_ORCHESTRATOR_FORGET_MISSING_VMS
         self._INDIGO_ORCHESTRATOR_DROP_FAILING_VMS = config_indigo.INDIGO_ORCHESTRATOR_DROP_FAILING_VMS
         self._INDIGO_ORCHESTRATOR_PAGE_SIZE = config_indigo.INDIGO_ORCHESTRATOR_PAGE_SIZE
-        self._auth_data = {'token' : config_indigo.INDIGO_ORCHESTRATOR_AUTH_DATA }
+        self._auth_data = {'token': config_indigo.INDIGO_ORCHESTRATOR_AUTH_DATA}
 
         self._refresh_time_diff = 300
         self._inf_id = None

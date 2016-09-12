@@ -351,7 +351,7 @@ class TestMesosPlugin(unittest.TestCase):
         mock_pm._INDIGO_ORCHESTRATOR_URL = "https://172.30.15.43:8080"
         powermanager._get_http_connection(mock_pm)
         self.assertEquals(
-            https_connection.call_args_list, [call('172.30.15.43:8080')])
+            https_connection.call_args_list, [call('172.30.15.43', 8080)])
 
     @patch('httplib.HTTPConnection')
     def test_get_http_connection(self, http_connection):
@@ -359,7 +359,7 @@ class TestMesosPlugin(unittest.TestCase):
         mock_pm._INDIGO_ORCHESTRATOR_URL = "http://172.30.15.43:8080"
         powermanager._get_http_connection(mock_pm)
         self.assertEquals(
-            http_connection.call_args_list, [call('172.30.15.43:8080')])
+            http_connection.call_args_list, [call('172.30.15.43',8080)])
 
     def test_get_resources_error(self):
         mock_pm = MagicMock(powermanager)
