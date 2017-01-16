@@ -105,7 +105,7 @@ class powermanager(PowerManager):
 
         self._refresh_time_diff = 300
         self._inf_id = None
-        self._master_node_id = None
+        self._master_nodes_ids = []
         # Structure for the recovery of nodes
         self._db = cpyutils.db.DB.create_from_string(
             config_indigo.INDIGO_ORCHESTRATOR_DB_CONNECTION_STRING)
@@ -165,20 +165,19 @@ class powermanager(PowerManager):
 
     def _get_master_node_id(self, resources):
         if not self._master_node_id:
-            older_resource = None
+            older_resources = []
             # if this plugin is used after year 5000 please change this
             last_time = time.strptime("5000-12-01T00:00", "%Y-%m-%dT%H:%M")
             for resource in resources:
                 # date format: 2016-02-04T10:43+0000
-                creation_time = time.strptime(
-                    resource['creationTime'][:-5], "%Y-%m-%dT%H:%M")
-                if creation_time < last_time:
+                creation_time = time.strptime(resource['creationTime'][:-5], "%Y-%m-%dT%H:%M")
+                if creation_time <= last_time:
                     last_time = creation_time
-                    older_resource = resource
+                    older_resources.append(resource)
 
-            self._master_node_id = older_resource['uuid']
+            self._master_nodes_ids = [res['uuid'] for res in older_resources]
 
-        return self._master_node_id
+        return self._master_nodes_ids
 
     def _get_resources_page(self, page=0):
         inf_id = self._get_inf_id()
@@ -235,7 +234,7 @@ class powermanager(PowerManager):
             _LOGGER.warning("No resources obtained from orchestrator.")
         else:
             for resource in resources:
-                if resource['uuid'] != self._get_master_node_id(resources):
+                if resource['uuid'] not in self._get_master_node_id(resources):
                     vm = self.VM_Node(resource['uuid'])
                     status = resource['state']
                     # Possible status (TOSCA node status)
@@ -558,7 +557,7 @@ class powermanager(PowerManager):
                     resources = self._get_resources()
                     current_uuids = [vm.vm_id for vm in vms.values()]
                     for resource in resources:
-                        if (resource['uuid'] != self._get_master_node_id(resources) and
+                        if (resource['uuid'] not in self._get_master_node_id(resources) and
                                 resource['uuid'] not in current_uuids):
                             new_uuids.append(resource['uuid'])
                     if len(new_uuids) < 1:
