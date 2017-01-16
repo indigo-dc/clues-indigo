@@ -164,7 +164,7 @@ class powermanager(PowerManager):
         return None
 
     def _get_master_node_id(self, resources):
-        if not self._master_node_id:
+        if not self._master_nodes_ids:
             older_resources = []
             # if this plugin is used after year 5000 please change this
             last_time = time.strptime("5000-12-01T00:00", "%Y-%m-%dT%H:%M")
