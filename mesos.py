@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import socket
 import subprocess
 import json
 import cpyutils.config
@@ -59,8 +60,7 @@ def curl_command(command, server_ip, error_message, is_json=True):
             else:
                 return result
     except Exception as exception:
-        message = str(exception) + ';ERROR=' + error_message.rstrip('\n') + ';SERVER_IP=' + \
-                server_ip.rstrip('\n')
+        message = str(exception) + ';ERROR=' + error_message.rstrip('\n') + ';SERVER_IP=' + server_ip.rstrip('\n')
         if result:
             message += ';COMMAND_OUTPUT=' + result.rstrip('\n') + ''
         _LOGGER.error(message)
@@ -326,7 +326,13 @@ class lrms(LRMS):
                 name = mesos_slave['hostname']
                 if nodeinfolist:
                     for node in nodeinfolist:
-                        if name == nodeinfolist[node].name:
+                        nodeinfolist_node_ip = None
+                        try:
+                            nodeinfolist_node_ip = socket.gethostbyname(nodeinfolist[node].name)
+                        except:
+                            _LOGGER.warning("Error resolving node ip %s" % nodeinfolist[node].name)
+                        if name == nodeinfolist[node].name or name == nodeinfolist_node_ip:
+                            name = nodeinfolist[node].name
                             state = infer_clues_node_state(mesos_slave["id"], mesos_slave["active"], used_nodes)
                             slots_count = float(mesos_slave['resources']['cpus'])
                             memory_total = calculate_memory_bytes(mesos_slave['resources']['mem'])
