@@ -52,6 +52,7 @@ def run_command(command):
 
 
 def curl_command(command, server_ip, error_message, is_json=True):
+    result = None
     try:
         result = run_command(command.split(" "))
         if result:
