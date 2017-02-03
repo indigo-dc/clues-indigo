@@ -156,7 +156,7 @@ class lrms(LRMS):
             for mesos_job in mesos_jobs['tasks']:
                 state = mesos_job['state']
                 if state == "TASK_RUNNING" or state == "TASK_STAGING":
-                    if mesos_job['slave_id'] not in used_nodes: 
+                    if mesos_job['slave_id'] not in used_nodes:
                         used_nodes.append(mesos_job['slave_id'])
 
         return used_nodes
@@ -265,7 +265,7 @@ class lrms(LRMS):
 
     def __init__(self, MESOS_SERVER=None, MESOS_NODES_COMMAND=None, MESOS_STATE_COMMAND=None, MESOS_JOBS_COMMAND=None,
                  MESOS_MARATHON_COMMAND=None, MESOS_CHRONOS_COMMAND=None, MESOS_CHRONOS_STATE_COMMAND=None,
-                 MESOS_NODE_MEMORY=None,MESOS_NODE_SLOTS=None):
+                 MESOS_NODE_MEMORY=None, MESOS_NODE_SLOTS=None):
 
         config_mesos = cpyutils.config.Configuration(
             "MESOS",
