@@ -9,7 +9,7 @@
             "resources": {
                 "cpus": 0.5,
                 "disk": 256,
-                "mem": 512
+                "mem": 256
             },
             "slave_id": "20150925-075030-1063856798-5050-3482-S0",
             "state": "TASK_RUNNING",
@@ -29,18 +29,14 @@
             "resources": {
                 "cpus": 0.5,
                 "disk": 256,
-                "mem": 512
+                "mem": 256
             },
             "slave_id": "20150925-075030-1063856798-5050-3482-S0",
-            "state": "TASK_FINISHED",
+            "state": "TASK_RUNNING",
             "statuses": [
                 {
                     "state": "TASK_RUNNING",
                     "timestamp": 1437487453.65378
-                },
-                {
-                    "state": "TASK_FINISHED",
-                    "timestamp": 1437487463.59986
                 }
             ]
         },

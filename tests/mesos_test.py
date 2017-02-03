@@ -77,6 +77,7 @@ class TestMesosPlugin(unittest.TestCase):
     @mock.patch('mesos.lrms._obtain_mesos_jobs')
     def test_obtain_used_nodes(self, mock_obtain_mesos_jobs):
         mock_obtain_mesos_jobs.return_value = read_file_as_json("test-files/mesos-master-tasks.json")
+        print mesos.lrms(MagicMock(mesos.lrms))._obtain_mesos_used_nodes()
         assert mesos.lrms(MagicMock(mesos.lrms))._obtain_mesos_used_nodes() == [
             '20150925-075030-1063856798-5050-3482-S0']
 
@@ -85,7 +86,7 @@ class TestMesosPlugin(unittest.TestCase):
         mesos_tasks = read_file_as_json("test-files/mesos-master-tasks.json")
         mock_obtain_mesos_jobs.return_value = mesos_tasks
         assert mesos.lrms(MagicMock(mesos.lrms))._obtain_cpu_mem_used_in_mesos_node(
-            "20150925-075030-1063856798-5050-3482-S0") == (0.5, 536870912)
+            "20150925-075030-1063856798-5050-3482-S0") == (1.0, 536870912)
 
     def test_infer_clues_node_state_idle(self):
         assert mesos.infer_clues_node_state('1', 'active=false', ['3', '5', 'active=true']) == NodeInfo.IDLE
