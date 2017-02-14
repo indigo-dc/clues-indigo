@@ -31,6 +31,7 @@ import httplib
 import base64
 import string
 from urlparse import urlparse
+import requests
 
 import cpyutils.db
 import cpyutils.config
@@ -125,29 +126,6 @@ class powermanager(PowerManager):
 
         return auth_header
 
-    def _get_http_connection(self):
-        """
-        Get the HTTPConnection object to contact the orchestrator API
-
-        Returns(HTTPConnection or HTTPSConnection): HTTPConnection connection object
-        """
-
-        url = urlparse(self._INDIGO_ORCHESTRATOR_URL)
-
-        server = url[1]
-        port = 80
-        if url[1].find(":") != -1:
-            parts = url[1].split(":")
-            server = parts[0]
-            port = int(parts[1])
-
-        if url[0] == 'https':
-            conn = httplib.HTTPSConnection(server, port)
-        elif url[0] == 'http':
-            conn = httplib.HTTPConnection(server, port)
-
-        return conn
-
     def _get_inf_id(self):
         return self._INDIGO_ORCHESTRATOR_DEPLOY_ID
 
@@ -186,13 +164,10 @@ class powermanager(PowerManager):
         auth = self._get_auth_header()
         if auth:
             headers.update(auth)
-        conn = self._get_http_connection()
-        conn.request('GET', "/orchestrator/deployments/%s/resources?size=%d&page=%d" %
-                     (inf_id, self._INDIGO_ORCHESTRATOR_PAGE_SIZE, page), headers=headers)
-        resp = conn.getresponse()
-        output = resp.read()
-        conn.close()
-        return resp.status, output
+        url = "%s/%s" % (self._INDIGO_ORCHESTRATOR_URL, "deployments/%s/resources?size=%d&page=%d" %
+                         (inf_id, self._INDIGO_ORCHESTRATOR_PAGE_SIZE, page))
+        resp = requests.request("GET", url, headers=headers)
+        return resp.status_code, resp.text
 
     def _get_resources(self):
         try:
@@ -479,46 +454,33 @@ class powermanager(PowerManager):
         auth = self._get_auth_header()
         if auth:
             headers.update(auth)
-        conn = self._get_http_connection()
-        conn.request('GET', "/orchestrator/deployments/%s" %
-                     inf_id, headers=headers)
-        resp = conn.getresponse()
-        output = resp.read()
-        conn.close()
+        url = "%s/%s" % (self._INDIGO_ORCHESTRATOR_URL, "deployments/%s" % inf_id)
+        resp = requests.request("GET", url, headers=headers)
 
-        if resp.status != 200:
+        if resp.status_code != 200:
             _LOGGER.error("ERROR getting deployment status: %s (%d)" %
-                          (str(output), resp.status))
+                          (str(resp.text), resp.status_code))
             return None
         else:
-            deployment_info = json.loads(output)
+            deployment_info = json.loads(resp.text)
             _LOGGER.debug("Deployment in status: %s" % deployment_info['status'])
             return deployment_info['status']
 
     def _modify_deployment(self, vms, remove_nodes=None, add_nodes=None):
         inf_id = self._get_inf_id()
 
-        conn = self._get_http_connection()
-        conn.putrequest('PUT', "/orchestrator/deployments/%s" % inf_id)
-        auth_header = self._get_auth_header()
-        if auth_header:
-            conn.putheader(auth_header.keys()[0], auth_header.values()[0])
-        conn.putheader('Accept', 'application/json')
-        conn.putheader('Content-Type', 'application/json')
-        conn.putheader('Connection', 'close')
+        headers = {'Accept': 'application/json', 'Connection': 'close', 'Content-Type': 'application/json'}
+        auth = self._get_auth_header()
+        if auth:
+            headers.update(auth)
 
         template = self._get_template(len(vms), remove_nodes, add_nodes)
         _LOGGER.debug("template: " + template)
         body = '{ "template": "%s" }' % template.replace('"', '\\"').replace('\n', '\\n')
 
-        conn.putheader('Content-Length', len(body))
-        conn.endheaders(body)
-
-        resp = conn.getresponse()
-        output = str(resp.read())
-        conn.close()
-
-        return resp.status, output
+        url = "%s/%s" % (self._INDIGO_ORCHESTRATOR_URL, "deployments/%s" % inf_id)
+        resp = requests.request("PUT", url, headers=headers, data=body)
+        return resp.status_code, resp.text
 
     def power_on(self, nname):
         vms = self._mvs_seen
@@ -603,19 +565,16 @@ class powermanager(PowerManager):
         auth = self._get_auth_header()
         if auth:
             headers.update(auth)
-        conn = self._get_http_connection()
-        conn.request('GET', "/orchestrator/deployments/%s/template" %
-                     inf_id, headers=headers)
-        resp = conn.getresponse()
-        output = resp.read()
-        conn.close()
 
-        if resp.status != 200:
+        url = "%s/%s" % (self._INDIGO_ORCHESTRATOR_URL, "deployments/%s/template" % inf_id)
+        resp = requests.request("GET", url, headers=headers)
+
+        if resp.status_code != 200:
             _LOGGER.error("ERROR getting deployment template: %s" %
-                          str(output))
+                          str(resp.text))
             return None
         else:
-            templateo = yaml.load(output)
+            templateo = yaml.load(resp.text)
             node_name = self._find_wn_nodetemplate_name(templateo)
             node_template = templateo['topology_template']['node_templates'][node_name]
 
