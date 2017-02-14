@@ -345,22 +345,6 @@ class TestMesosPlugin(unittest.TestCase):
         self.assertEquals(powermanager()._power_on('vnode1'), True)
         self.assertIn("Node vnode1 successfully created", self.log.getvalue())
 
-    @patch('httplib.HTTPSConnection')
-    def test_get_https_connection(self, https_connection):
-        mock_pm = MagicMock(powermanager)
-        mock_pm._INDIGO_ORCHESTRATOR_URL = "https://172.30.15.43:8080"
-        powermanager._get_http_connection(mock_pm)
-        self.assertEquals(
-            https_connection.call_args_list, [call('172.30.15.43', 8080)])
-
-    @patch('httplib.HTTPConnection')
-    def test_get_http_connection(self, http_connection):
-        mock_pm = MagicMock(powermanager)
-        mock_pm._INDIGO_ORCHESTRATOR_URL = "http://172.30.15.43:8080"
-        powermanager._get_http_connection(mock_pm)
-        self.assertEquals(
-            http_connection.call_args_list, [call('172.30.15.43', 8080)])
-
     def test_get_resources_error(self):
         mock_pm = MagicMock(powermanager)
         mock_pm._get_resources_page.return_value = 404, 'test'
@@ -387,35 +371,35 @@ class TestMesosPlugin(unittest.TestCase):
         self.assertIn(
             "Error creating INDIGO orchestrator plugin DB", self.log.getvalue())
 
-    @patch('httplib.HTTPConnection')
-    def test_get_deployment_status_error(self, http_connection):
+    @patch('requests.request')
+    def test_get_deployment_status_error(self, requests):
         mock_pm = MagicMock(powermanager)
         mock_pm._get_inf_id.return_value = 'ORCH_ID'
         mock_pm._get_auth_header.return_value = None
-        mock_pm._get_http_connection.return_value = http_connection
+        mock_pm._INDIGO_ORCHESTRATOR_URL = "https://localhost/orchestrator"
         powermanager._get_deployment_status(mock_pm)
 
-        self.assertEquals(http_connection.request.call_args_list,
-                          [call('GET', '/orchestrator/deployments/ORCH_ID',
+        self.assertEquals(requests.call_args_list,
+                          [call('GET', 'https://localhost/orchestrator/deployments/ORCH_ID',
                                 headers={'Connection': 'close', 'Accept': 'application/json'})])
         self.assertIn("ERROR getting deployment status:", self.log.getvalue())
 
-    @patch('httplib.HTTPConnection')
-    def test_get_deployment_status(self, http_connection):
+    @patch('requests.request')
+    def test_get_deployment_status(self, requests):
         mock_pm = MagicMock(powermanager)
         mock_pm._get_inf_id.return_value = 'ORCH_ID'
         mock_pm._get_auth_header.return_value = None
-        mock_pm._get_http_connection.return_value = http_connection
+        mock_pm._INDIGO_ORCHESTRATOR_URL = "https://localhost/orchestrator"
 
-        mock_response = MagicMock(httplib.HTTPResponse)
-        mock_response.status = 200
-        mock_response.read.return_value = '{"status" : "test_stat"}'
-        http_connection.getresponse.return_value = mock_response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = '{"status" : "test_stat"}'
+        requests.return_value = mock_response
 
         self.assertEquals(
             powermanager._get_deployment_status(mock_pm), "test_stat")
-        self.assertEquals(http_connection.request.call_args_list,
-                          [call('GET', '/orchestrator/deployments/ORCH_ID',
+        self.assertEquals(requests.call_args_list,
+                          [call('GET', 'https://localhost/orchestrator/deployments/ORCH_ID',
                                 headers={'Connection': 'close', 'Accept': 'application/json'})])
         self.assertIn("Deployment in status: test_stat", self.log.getvalue())
 
@@ -461,27 +445,28 @@ class TestMesosPlugin(unittest.TestCase):
         self.assertIn(
             "Error trying to save INDIGO orchestrator plugin data", self.log.getvalue())
 
-    @patch('httplib.HTTPConnection')
-    def test_modify_deployment(self, http_connection):
+    @patch('requests.request')
+    def test_modify_deployment(self, requests):
         mock_pm = MagicMock(powermanager)
         mock_pm._get_inf_id.return_value = 'TEST_ID'
 
-        mock_response = MagicMock(httplib.HTTPResponse)
-        mock_response.status = 200
-        mock_response.read.return_value = '{"status" : "test_stat"}'
-        http_connection.getresponse.return_value = mock_response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = '{"status" : "test_stat"}'
+        requests.return_value = mock_response
 
         mock_pm._get_auth_header.return_value = None
-        mock_pm._get_http_connection.return_value = http_connection
+        mock_pm._INDIGO_ORCHESTRATOR_URL = "https://localhost/orchestrator"
         mock_pm._get_template.return_value = 'test_template\n"test_parser"'
 
         self.assertEquals(powermanager._modify_deployment(
             mock_pm, ['1', '2']), (200, '{"status" : "test_stat"}'))
         self.assertIn('test_template\n"test_parser"', self.log.getvalue())
-        self.assertEquals(http_connection.putrequest.call_args_list,
-                          [call('PUT', '/orchestrator/deployments/TEST_ID')])
-        self.assertEquals(http_connection.endheaders.call_args_list,
-                          [call('{ "template": "test_template\\n\\"test_parser\\"" }')])
+        self.assertEquals(requests.call_args_list,
+                          [call('PUT', 'https://localhost/orchestrator/deployments/TEST_ID',
+                                data='{ "template": "test_template\\n\\"test_parser\\"" }',
+                                headers={'Connection': 'close', 'Content-Type': 'application/json',
+                                         'Accept': 'application/json'})])
 
     def test_find_wn_nodetemplate_name(self):
         mock_pm = MagicMock(powermanager)
@@ -495,37 +480,36 @@ class TestMesosPlugin(unittest.TestCase):
         self.assertIn(
             'Error trying to get the WN template', self.log.getvalue())
 
-    @patch('httplib.HTTPConnection')
-    def test_get_template_no_node_changes(self, http_connection):
+    @patch('requests.request')
+    def test_get_template_no_node_changes(self, requests):
         mock_pm = MagicMock(powermanager)
         mock_pm._get_inf_id.return_value = 'TEST_ID'
         mock_pm._get_auth_header.return_value = None
 
-        mock_response = MagicMock(httplib.HTTPResponse)
-        mock_response.status = 200
-        mock_response.read.return_value = read_file_as_string(
-            'test-files/tosca_template.yaml')
-        http_connection.getresponse.return_value = mock_response
-        mock_pm._get_http_connection.return_value = http_connection
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = read_file_as_string('test-files/tosca_template.yaml')
+        requests.return_value = mock_response
+        mock_pm._INDIGO_ORCHESTRATOR_URL = "https://localhost/orchestrator"
 
         mock_pm._find_wn_nodetemplate_name.return_value = 'torque_wn'
         self.assertEquals(powermanager._get_template(mock_pm, 0, [], []),
                           read_file_as_string('test-files/template_result_no_node_changes'))
-        self.assertEquals(http_connection.request.call_args_list,
-                          [call('GET', '/orchestrator/deployments/TEST_ID/template',
+        self.assertEquals(requests.call_args_list,
+                          [call('GET', 'https://localhost/orchestrator/deployments/TEST_ID/template',
                                 headers={'Connection': 'close', 'Accept': 'text/plain'})])
 
-    @patch('httplib.HTTPConnection')
-    def test_get_template_error(self, http_connection):
+    @patch('requests.request')
+    def test_get_template_error(self, requests):
         mock_pm = MagicMock(powermanager)
         mock_pm._get_inf_id.return_value = 'TEST_ID'
         mock_pm._get_auth_header.return_value = None
 
-        mock_response = MagicMock(httplib.HTTPResponse)
-        mock_response.status = 404
-        mock_response.read.return_value = 'test'
-        http_connection.getresponse.return_value = mock_response
-        mock_pm._get_http_connection.return_value = http_connection
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        mock_response.text = 'test'
+        requests.return_value = mock_response
+        mock_pm._INDIGO_ORCHESTRATOR_URL = "https://localhost/orchestrator"
 
         mock_pm._find_wn_nodetemplate_name.return_value = 'torque_wn'
         powermanager._get_template(mock_pm, 0, [], [])
@@ -533,39 +517,38 @@ class TestMesosPlugin(unittest.TestCase):
         self.assertIn(
             'ERROR getting deployment template: test', self.log.getvalue())
 
-    @patch('httplib.HTTPConnection')
-    def test_get_template_add_one_node(self, http_connection):
+    @patch('requests.request')
+    def test_get_template_add_one_node(self, requests):
         mock_pm = MagicMock(powermanager)
         mock_pm._get_inf_id.return_value = 'TEST_ID'
         mock_pm._get_auth_header.return_value = None
 
         mock_response = MagicMock(httplib.HTTPResponse)
-        mock_response.status = 200
-        mock_response.read.return_value = read_file_as_string(
-            'test-files/tosca_template.yaml')
-        http_connection.getresponse.return_value = mock_response
-        mock_pm._get_http_connection.return_value = http_connection
+        mock_response.status_code = 200
+        mock_response.text = read_file_as_string('test-files/tosca_template.yaml')
+        requests.return_value = mock_response
+        mock_pm._INDIGO_ORCHESTRATOR_URL = "https://localhost/orchestrator"
 
         mock_pm._find_wn_nodetemplate_name.return_value = 'torque_wn'
 
         self.assertEquals(powermanager._get_template(mock_pm, 0, [], ['test_node']),
                           read_file_as_string('test-files/template_result_add_one_node'))
-        self.assertEquals(http_connection.request.call_args_list,
-                          [call('GET', '/orchestrator/deployments/TEST_ID/template',
+        self.assertEquals(requests.call_args_list,
+                          [call('GET', 'https://localhost/orchestrator/deployments/TEST_ID/template',
                                 headers={'Connection': 'close', 'Accept': 'text/plain'})])
 
-    @patch('httplib.HTTPConnection')
-    def test_get_template_add_several_nodes(self, http_connection):
+    @patch('requests.request')
+    def test_get_template_add_several_nodes(self, requests):
         mock_pm = MagicMock(powermanager)
         mock_pm._get_inf_id.return_value = 'TEST_ID'
         mock_pm._get_auth_header.return_value = None
 
-        mock_response = MagicMock(httplib.HTTPResponse)
-        mock_response.status = 200
-        mock_response.read.return_value = read_file_as_string(
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = read_file_as_string(
             'test-files/tosca_template.yaml')
-        http_connection.getresponse.return_value = mock_response
-        mock_pm._get_http_connection.return_value = http_connection
+        requests.return_value = mock_response
+        mock_pm._INDIGO_ORCHESTRATOR_URL = "https://localhost/orchestrator"
 
         mock_pm._find_wn_nodetemplate_name.return_value = 'torque_wn'
 
@@ -573,29 +556,29 @@ class TestMesosPlugin(unittest.TestCase):
                                                      ['test_node_1', 'test_node_1', 'test_node_2']),
                           read_file_as_string('test-files/template_result_add_several_nodes'))
 
-        self.assertEquals(http_connection.request.call_args_list,
-                          [call('GET', '/orchestrator/deployments/TEST_ID/template',
+        self.assertEquals(requests.call_args_list,
+                          [call('GET', 'https://localhost/orchestrator/deployments/TEST_ID/template',
                                 headers={'Connection': 'close', 'Accept': 'text/plain'})])
 
-    @patch('httplib.HTTPConnection')
-    def test_get_template_remove_nodes(self, http_connection):
+    @patch('requests.request')
+    def test_get_template_remove_nodes(self, requests):
         mock_pm = MagicMock(powermanager)
         mock_pm._get_inf_id.return_value = 'TEST_ID'
         mock_pm._get_auth_header.return_value = None
 
-        mock_response = MagicMock(httplib.HTTPResponse)
-        mock_response.status = 200
-        mock_response.read.return_value = read_file_as_string(
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = read_file_as_string(
             'test-files/tosca_template.yaml')
-        http_connection.getresponse.return_value = mock_response
-        mock_pm._get_http_connection.return_value = http_connection
+        requests.return_value = mock_response
+        mock_pm._INDIGO_ORCHESTRATOR_URL = "https://localhost/orchestrator"
 
         mock_pm._find_wn_nodetemplate_name.return_value = 'torque_wn'
 
         self.assertEquals(powermanager._get_template(mock_pm, 1, ['test_node_1', 'test_node_1'], []),
                           read_file_as_string('test-files/template_result_remove_nodes'))
-        self.assertEquals(http_connection.request.call_args_list,
-                          [call('GET', '/orchestrator/deployments/TEST_ID/template',
+        self.assertEquals(requests.call_args_list,
+                          [call('GET', 'https://localhost/orchestrator/deployments/TEST_ID/template',
                                 headers={'Connection': 'close', 'Accept': 'text/plain'})])
 
 if __name__ == '__main__':
