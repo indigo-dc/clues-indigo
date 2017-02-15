@@ -90,7 +90,7 @@ class powermanager(PowerManager):
 
             :param token: The JWT token
             """
-            part = tuple(token.split(b"."))
+            part = tuple(str(token).split(b"."))
             part = [powermanager.JWT.b64d(p) for p in part]
             return json.loads(part[1])
 
