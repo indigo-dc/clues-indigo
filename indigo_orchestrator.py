@@ -165,7 +165,7 @@ class powermanager(PowerManager):
         self._create_db()
         self._mvs_seen = self._load_mvs_seen()
         self._pending_tasks = self._load_pending_tasks()
-        
+
         # Initially we get the refresh token and a new access token
         self._get_refresh_token()
 
