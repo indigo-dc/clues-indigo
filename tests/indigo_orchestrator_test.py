@@ -355,7 +355,9 @@ class TestMesosPlugin(unittest.TestCase):
             'CREATE TABLE IF NOT EXISTS orchestrator_vms(node_name varchar(128) PRIMARY KEY, uuid varchar(128))', True)
         call2 = call(
             'CREATE TABLE IF NOT EXISTS orchestrator_tasks(node_name varchar(128), operation int)', True)
-        self.assertEquals(mock_pm._db.sql_query.call_args_list, [call1, call2])
+        call3 = call(
+            'CREATE TABLE IF NOT EXISTS orchestrator_token(token BLOB, num int)', True)
+        self.assertEquals(mock_pm._db.sql_query.call_args_list, [call1, call2, call3])
 
     def test_create_db_error(self):
         mock_pm = MagicMock(powermanager)

@@ -158,7 +158,6 @@ class powermanager(PowerManager):
 
         # Initially we get the refresh token and a new access token
         self._get_refresh_token()
-        # TODO: Save the access token to de config file
 
         self._refresh_time_diff = 300
         self._inf_id = None
@@ -169,6 +168,33 @@ class powermanager(PowerManager):
         self._create_db()
         self._mvs_seen = self._load_mvs_seen()
         self._pending_tasks = self._load_pending_tasks()
+
+        new_token = self._load_token()
+        if new_token:
+            self._auth_data = new_token
+
+    def _save_token(self, token):
+        try:
+            self._db.sql_query(
+                "INSERT or REPLACE into orchestrator_token values (0,'%s')" % token, True)
+        except:
+            _LOGGER.exception(
+                "Error trying to save INDIGO orchestrator plugin data.")
+
+    def _load_token(self):
+        try:
+            result, _, rows = self._db.sql_query("select * from orchestrator_token")
+            if result:
+                for (_, token) in rows:
+                    return token
+            else:
+                _LOGGER.error(
+                    "Error trying to load INDIGO orchestrator token data.")
+        except:
+            _LOGGER.exception(
+                "Error trying to load INDIGO orchestrator tasks data.")
+
+        return None
 
     def _get_refresh_token(self):
         """
@@ -511,6 +537,8 @@ class powermanager(PowerManager):
                                               "PRIMARY KEY, uuid varchar(128))", True)
             result, _, _ = self._db.sql_query("CREATE TABLE IF NOT EXISTS orchestrator_tasks(node_name varchar(128), "
                                               "operation int)", True)
+            result, _, _ = self._db.sql_query("CREATE TABLE IF NOT EXISTS orchestrator_token(token BLOB, "
+                                              "num int)", True)
         except:
             _LOGGER.exception(
                 "Error creating INDIGO orchestrator plugin DB. The data persistence will not work!")
