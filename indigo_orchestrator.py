@@ -173,10 +173,10 @@ class powermanager(PowerManager):
         if new_token:
             self._auth_data = new_token
 
-    def _save_token(self, token):
+    def _save_token(self):
         try:
             self._db.sql_query(
-                "INSERT or REPLACE into orchestrator_token values (0,'%s')" % token, True)
+                "INSERT or REPLACE into orchestrator_token values (0,'%s')" % self._auth_data, True)
         except:
             _LOGGER.exception(
                 "Error trying to save INDIGO orchestrator plugin data.")
@@ -214,6 +214,7 @@ class powermanager(PowerManager):
                     info = resp.json()
                     self._refresh_token = info["refresh_token"]
                     self._auth_data = info["access_token"]
+                    self._save_token()
                     _LOGGER.debug("Refresh token successfully obtained")
                     return True
                 else:
@@ -243,6 +244,7 @@ class powermanager(PowerManager):
                 if resp.status_code == 200:
                     info = resp.json()
                     self._auth_data = info["access_token"]
+                    self._save_token()
                     _LOGGER.debug("Access token successfully refreshed.")
                     return True
                 else:
