@@ -201,22 +201,26 @@ class powermanager(PowerManager):
         Get the access_token and refresj_token of the plugin client
         """
         if self._auth_data and self._client_id and self._client_secret:
-            decoded_token = powermanager.JWT().get_info(self._auth_data)
-            token_scopes = "openid profile offline_access"
-            url = "%s/token" % decoded_token['iss']
-            payload = ("client_id=%s&client_secret=%s&grant_type=urn%%3Aietf%%3Aparams%%3Aoauth%%3Agrant-type%%3A"
-                       "token-exchange&subject_token=%s&scope=%s") % (self._client_id, self._client_secret,
-                                                                      self._auth_data, token_scopes)
-            headers = {'content-type': 'application/x-www-form-urlencoded'}
-            resp = requests.request("POST", url, data=payload, headers=headers)
-            if resp.status_code == 200:
-                info = resp.json()
-                self._refresh_token = info["refresh_token"]
-                self._auth_data = info["access_token"]
-                _LOGGER.debug("Refresh token successfully obtained")
-                return True
-            else:
-                _LOGGER.error("Error getting refresh token: Code %d. Message: %s" % (resp.status_code, resp.text))
+            try:
+                decoded_token = powermanager.JWT().get_info(self._auth_data)
+                token_scopes = "openid profile offline_access"
+                url = "%s/token" % decoded_token['iss']
+                payload = ("client_id=%s&client_secret=%s&grant_type=urn%%3Aietf%%3Aparams%%3Aoauth%%3Agrant-type%%3A"
+                           "token-exchange&subject_token=%s&scope=%s") % (self._client_id, self._client_secret,
+                                                                          self._auth_data, token_scopes)
+                headers = {'content-type': 'application/x-www-form-urlencoded'}
+                resp = requests.request("POST", url, data=payload, headers=headers, verify=False)
+                if resp.status_code == 200:
+                    info = resp.json()
+                    self._refresh_token = info["refresh_token"]
+                    self._auth_data = info["access_token"]
+                    _LOGGER.debug("Refresh token successfully obtained")
+                    return True
+                else:
+                    _LOGGER.error("Error getting refresh token: Code %d. Message: %s" % (resp.status_code, resp.text))
+                    return False
+            except:
+                _LOGGER.error("Error getting refresh token")
                 return False
         else:
             _LOGGER.error("Error getting refresh token: No auth_data or client info provided.")
@@ -227,20 +231,25 @@ class powermanager(PowerManager):
         Refresh the current access_token
         """
         if self._refresh_token and self._client_id and self._client_secret:
-            decoded_token = powermanager.JWT().get_info(self._auth_data)
-            token_scopes = "openid profile offline_access"
-            url = "%s/token" % decoded_token['iss']
-            payload = ("client_id=%s&client_secret=%s&grant_type=refresh_token&scope=%s"
-                       "&refresh_token=%s") % (self._client_id, self._client_secret, token_scopes, self._refresh_token)
-            headers = {'content-type': 'application/x-www-form-urlencoded'}
-            resp = requests.request("POST", url, data=payload, headers=headers)
-            if resp.status_code == 200:
-                info = resp.json()
-                self._auth_data = info["access_token"]
-                _LOGGER.debug("Access token successfully refreshed.")
-                return True
-            else:
-                _LOGGER.error("Error refreshing access token: Code %d. Message: %s" % (resp.status_code, resp.text))
+            try:
+                decoded_token = powermanager.JWT().get_info(self._auth_data)
+                token_scopes = "openid profile offline_access"
+                url = "%s/token" % decoded_token['iss']
+                payload = ("client_id=%s&client_secret=%s&grant_type=refresh_token&scope=%s"
+                           "&refresh_token=%s") % (self._client_id, self._client_secret,
+                                                   token_scopes, self._refresh_token)
+                headers = {'content-type': 'application/x-www-form-urlencoded'}
+                resp = requests.request("POST", url, data=payload, headers=headers, verify=False)
+                if resp.status_code == 200:
+                    info = resp.json()
+                    self._auth_data = info["access_token"]
+                    _LOGGER.debug("Access token successfully refreshed.")
+                    return True
+                else:
+                    _LOGGER.error("Error refreshing access token: Code %d. Message: %s" % (resp.status_code, resp.text))
+                    return False
+            except:
+                _LOGGER.error("Error refreshing access token.")
                 return False
         else:
             _LOGGER.error("Error refreshing access token: No client info provided.")
@@ -251,13 +260,17 @@ class powermanager(PowerManager):
         Check if the current access token is to expire
         """
         if self._auth_data:
-            decoded_token = powermanager.JWT().get_info(self._auth_data)
-            now = int(time.time())
-            expires = int(decoded_token['exp'])
-            _LOGGER.debug("The access token is valid for %s seconds." % (expires - now))
-            if expires - now < self._refresh_time_diff:
-                return True
-            else:
+            try:
+                decoded_token = powermanager.JWT().get_info(self._auth_data)
+                now = int(time.time())
+                expires = int(decoded_token['exp'])
+                _LOGGER.debug("The access token is valid for %s seconds." % (expires - now))
+                if expires - now < self._refresh_time_diff:
+                    return True
+                else:
+                    return False
+            except:
+                _LOGGER.exception("Error getting token info.")
                 return False
         else:
             _LOGGER.error("No access token to check expiration.")

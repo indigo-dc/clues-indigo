@@ -603,7 +603,7 @@ class TestMesosPlugin(unittest.TestCase):
                                 data=('client_id=cid&client_secret=csec&grant_type=urn%3Aietf%3Aparams%3Aoauth%3A'
                                       'grant-type%3Atoken-exchange&subject_token=' + access_token + '&scope'
                                       '=openid profile offline_access'),
-                                headers={'content-type': 'application/x-www-form-urlencoded'})])
+                                headers={'content-type': 'application/x-www-form-urlencoded'}, verify=False)])
 
     @patch('requests.request')
     def test_refresh_access_token(self, requests):
@@ -631,7 +631,7 @@ class TestMesosPlugin(unittest.TestCase):
                           [call('POST', u'https://iam-test.indigo-datacloud.eu//token',
                                 data=('client_id=cid&client_secret=csec&grant_type=refresh_token&'
                                       'scope=openid profile offline_access&refresh_token=refresh_token'),
-                                headers={'content-type': 'application/x-www-form-urlencoded'})])
+                                headers={'content-type': 'application/x-www-form-urlencoded'}, verify=False)])
 
     def test_is_access_token_to_expire(self):
         mock_pm = MagicMock(powermanager)
