@@ -21,16 +21,12 @@ Created on 26/1/2015
 @author: micafer
 '''
 
-import datetime
 import re
 import yaml
 import time
 import json
 import logging
-import httplib
 import base64
-import string
-from urlparse import urlparse
 import requests
 
 import cpyutils.db
@@ -46,6 +42,57 @@ class powermanager(PowerManager):
 
     POWER_ON = 1
     POWER_OFF = 0
+
+    class JWT(object):
+
+        @staticmethod
+        def b64d(b):
+            """Decode some base64-encoded bytes.
+
+            Raises Exception if the string contains invalid characters or padding.
+
+            :param b: bytes
+            """
+
+            cb = b.rstrip(b"=")  # shouldn't but there you are
+
+            # Python's base64 functions ignore invalid characters, so we need to
+            # check for them explicitly.
+            b64_re = re.compile(b"^[A-Za-z0-9_-]*$")
+            if not b64_re.match(cb):
+                raise Exception(cb, "base64-encoded data contains illegal characters")
+
+            if cb == b:
+                b = powermanager.JWT.add_padding(b)
+
+            return base64.urlsafe_b64decode(b)
+
+        @staticmethod
+        def add_padding(b):
+            # add padding chars
+            m = len(b) % 4
+            if m == 1:
+                # NOTE: for some reason b64decode raises *TypeError* if the
+                # padding is incorrect.
+                raise Exception(b, "incorrect padding")
+            elif m == 2:
+                b += b"=="
+            elif m == 3:
+                b += b"="
+            return b
+
+        @staticmethod
+        def get_info(token):
+            """
+            Unpacks a JWT into its parts and base64 decodes the parts
+            individually, returning the part 1 json decoded, where the
+            token info is stored.
+
+            :param token: The JWT token
+            """
+            part = tuple(token.split(b"."))
+            part = [powermanager.JWT.b64d(p) for p in part]
+            return json.loads(part[1])
 
     class Task:
 
@@ -92,7 +139,9 @@ class powermanager(PowerManager):
                 "INDIGO_ORCHESTRATOR_DROP_FAILING_VMS": 30,
                 "INDIGO_ORCHESTRATOR_DB_CONNECTION_STRING": "sqlite:///var/lib/clues2/clues.db",
                 "INDIGO_ORCHESTRATOR_PAGE_SIZE": 20,
-                "INDIGO_ORCHESTRATOR_AUTH_DATA": ""
+                "INDIGO_ORCHESTRATOR_AUTH_DATA": "",
+                "INDIGO_ORCHESTRATOR_CLIENT_ID": "",
+                "INDIGO_ORCHESTRATOR_CLIENT_SECRET": ""
             }
         )
 
@@ -102,7 +151,14 @@ class powermanager(PowerManager):
         self._INDIGO_ORCHESTRATOR_FORGET_MISSING_VMS = config_indigo.INDIGO_ORCHESTRATOR_FORGET_MISSING_VMS
         self._INDIGO_ORCHESTRATOR_DROP_FAILING_VMS = config_indigo.INDIGO_ORCHESTRATOR_DROP_FAILING_VMS
         self._INDIGO_ORCHESTRATOR_PAGE_SIZE = config_indigo.INDIGO_ORCHESTRATOR_PAGE_SIZE
-        self._auth_data = {'token': config_indigo.INDIGO_ORCHESTRATOR_AUTH_DATA}
+        self._auth_data = config_indigo.INDIGO_ORCHESTRATOR_AUTH_DATA
+        self._client_id = config_indigo.INDIGO_ORCHESTRATOR_CLIENT_ID
+        self._client_secret = config_indigo.INDIGO_ORCHESTRATOR_CLIENT_SECRET
+        self._refresh_token = None
+
+        # Initially we get the refresh token and a new access token
+        self._get_refresh_token()
+        # TODO: Save the access token to de config file
 
         self._refresh_time_diff = 300
         self._inf_id = None
@@ -114,15 +170,77 @@ class powermanager(PowerManager):
         self._mvs_seen = self._load_mvs_seen()
         self._pending_tasks = self._load_pending_tasks()
 
+    def _get_refresh_token(self):
+        """
+        Get the access_token and refresj_token of the plugin client
+        """
+        if self._auth_data and self._client_id and self._client_secret:
+            decoded_token = powermanager.JWT().get_info(self._auth_data)
+            token_scopes = "openid profile offline_access"
+            url = "%s/token" % decoded_token['iss']
+            payload = ("client_id=%s&client_secret=%s&grant_type=urn%%3Aietf%%3Aparams%%3Aoauth%%3Agrant-type%%3A"
+                       "token-exchange&subject_token=%s&scope=%s") % (self._client_id, self._client_secret,
+                                                                      self._auth_data, token_scopes)
+            headers = {'content-type': 'application/x-www-form-urlencoded'}
+            resp = requests.request("POST", url, data=payload, headers=headers)
+            if resp.status_code == 200:
+                info = resp.json()
+                self._refresh_token = info["refresh_token"]
+                self._auth_data = info["access_token"]
+                _LOGGER.debug("Refresh token successfully obtained")
+                return True
+            else:
+                _LOGGER.error("Error getting refresh token: Code %d. Message: %s" % (resp.status_code, resp.text))
+                return False
+        else:
+            _LOGGER.error("Error getting refresh token: No auth_data or client info provided.")
+            return False
+
+    def _refresh_access_token(self):
+        """
+        Refresh the current access_token
+        """
+        if self._refresh_token and self._client_id and self._client_secret:
+            decoded_token = powermanager.JWT().get_info(self._auth_data)
+            token_scopes = "openid profile offline_access"
+            url = "%s/token" % decoded_token['iss']
+            payload = ("client_id=%s&client_secret=%s&grant_type=refresh_token&scope=%s"
+                       "&refresh_token=%s") % (self._client_id, self._client_secret, token_scopes, self._refresh_token)
+            headers = {'content-type': 'application/x-www-form-urlencoded'}
+            resp = requests.request("POST", url, data=payload, headers=headers)
+            if resp.status_code == 200:
+                info = resp.json()
+                self._auth_data = info["access_token"]
+                _LOGGER.debug("Access token successfully refreshed.")
+                return True
+            else:
+                _LOGGER.error("Error refreshing access token: Code %d. Message: %s" % (resp.status_code, resp.text))
+                return False
+        else:
+            _LOGGER.error("Error refreshing access token: No client info provided.")
+            return False
+
+    def _is_access_token_to_expire(self):
+        """
+        Check if the current access token is to expire
+        """
+        if self._auth_data:
+            decoded_token = powermanager.JWT().get_info(self._auth_data)
+            now = int(time.time())
+            expires = int(decoded_token['exp'])
+            _LOGGER.debug("The access token is valid for %s seconds." % (expires - now))
+            if expires - now < self._refresh_time_diff:
+                return True
+            else:
+                return False
+        else:
+            _LOGGER.error("No access token to check expiration.")
+            return False
+
     def _get_auth_header(self):
         auth_header = None
-        if self._auth_data and 'username' in self._auth_data and 'password' in self._auth_data:
-            passwd = self._auth_data['password']
-            user = self._auth_data['username']
-            auth_header = {'Authorization': 'Basic ' +
-                           string.strip(base64.encodestring(user + ':' + passwd))}
-        elif self._auth_data and 'token' in self._auth_data:
-            auth_header = {'Authorization': 'Bearer %s' % self._auth_data['token']}
+        if self._auth_data:
+            auth_header = {'Authorization': 'Bearer %s' % self._auth_data}
 
         return auth_header
 
@@ -322,6 +440,10 @@ class powermanager(PowerManager):
 
     def lifecycle(self):
         try:
+            # First check if we have to refresh de access token
+            if self._is_access_token_to_expire():
+                self._refresh_access_token()
+
             monitoring_info = self._clues_daemon.get_monitoring_info()
             now = cpyutils.eventloop.now()
 

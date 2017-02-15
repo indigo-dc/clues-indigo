@@ -76,13 +76,6 @@ class TestMesosPlugin(unittest.TestCase):
         self.assertEquals(vm.timestamp_created, 5)
         self.assertEquals(vm.timestamp_seen, 5)
 
-    def test_powermanager_get_auth_header(self):
-        mock_pm = MagicMock(powermanager)
-        mock_pm._auth_data = {'username': 'paco', 'password': '12345'}
-
-        self.assertEquals(powermanager._get_auth_header(
-            mock_pm), {'Authorization': 'Basic cGFjbzoxMjM0NQ=='})
-
     def test_powermanager_power_on(self):
         mock_pm = MagicMock(powermanager)
         mock_pm._mvs_seen = ["test1", "test2", "test3"]
@@ -580,6 +573,76 @@ class TestMesosPlugin(unittest.TestCase):
         self.assertEquals(requests.call_args_list,
                           [call('GET', 'https://localhost/orchestrator/deployments/TEST_ID/template',
                                 headers={'Connection': 'close', 'Accept': 'text/plain'})])
+
+    @patch('requests.request')
+    def test_get_refresh_token(self, requests):
+        mock_pm = MagicMock(powermanager)
+        access_token = ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGF"
+                        "jMDUwMTcwNjYiLCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwI"
+                        "joxNDY1NDcxMzU0LCJpYXQiOjE0NjU0Njc3NTUsImp0aSI6IjA3YjlkYmE4LTc3NWMtNGI5OS1iN2QzLTk4Njg"
+                        "5ODM1N2FiYSJ9.DwpZizVaYtvIj7fagQqDFpDh96szFupf6BNMIVLcopqQtZ9dBvwN9lgZ_w7Htvb3r-erho_hc"
+                        "me5mqDMVbSKwsA2GiHfiXSnh9jmNNVaVjcvSPNVGF8jkKNxeSSgoT3wED8xt4oU4s5MYiR075-RAkt6AcWqVbXU"
+                        "z5BzxBvANko")
+        mock_pm._auth_data = access_token
+        mock_pm._client_id = "cid"
+        mock_pm._client_secret = "csec"
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = {
+            "access_token": "access_token",
+            "refresh_token": "refresh_token",
+        }
+        requests.return_value = mock_response
+
+        self.assertTrue(powermanager._get_refresh_token(mock_pm))
+        self.assertEquals(requests.call_args_list,
+                          [call('POST', u'https://iam-test.indigo-datacloud.eu//token',
+                                data=('client_id=cid&client_secret=csec&grant_type=urn%3Aietf%3Aparams%3Aoauth%3A'
+                                      'grant-type%3Atoken-exchange&subject_token=' + access_token + '&scope'
+                                      '=openid profile offline_access'),
+                                headers={'content-type': 'application/x-www-form-urlencoded'})])
+
+    @patch('requests.request')
+    def test_refresh_access_token(self, requests):
+        mock_pm = MagicMock(powermanager)
+        access_token = ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGF"
+                        "jMDUwMTcwNjYiLCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwI"
+                        "joxNDY1NDcxMzU0LCJpYXQiOjE0NjU0Njc3NTUsImp0aSI6IjA3YjlkYmE4LTc3NWMtNGI5OS1iN2QzLTk4Njg"
+                        "5ODM1N2FiYSJ9.DwpZizVaYtvIj7fagQqDFpDh96szFupf6BNMIVLcopqQtZ9dBvwN9lgZ_w7Htvb3r-erho_hc"
+                        "me5mqDMVbSKwsA2GiHfiXSnh9jmNNVaVjcvSPNVGF8jkKNxeSSgoT3wED8xt4oU4s5MYiR075-RAkt6AcWqVbXU"
+                        "z5BzxBvANko")
+        mock_pm._auth_data = access_token
+        mock_pm._refresh_token = "refresh_token"
+        mock_pm._client_id = "cid"
+        mock_pm._client_secret = "csec"
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = {
+            "access_token": "access_token",
+        }
+        requests.return_value = mock_response
+
+        self.assertTrue(powermanager._refresh_access_token(mock_pm))
+        self.assertEquals(requests.call_args_list,
+                          [call('POST', u'https://iam-test.indigo-datacloud.eu//token',
+                                data=('client_id=cid&client_secret=csec&grant_type=refresh_token&'
+                                      'scope=openid profile offline_access&refresh_token=refresh_token'),
+                                headers={'content-type': 'application/x-www-form-urlencoded'})])
+
+    def test_is_access_token_to_expire(self):
+        mock_pm = MagicMock(powermanager)
+        access_token = ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGF"
+                        "jMDUwMTcwNjYiLCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwI"
+                        "joxNDY1NDcxMzU0LCJpYXQiOjE0NjU0Njc3NTUsImp0aSI6IjA3YjlkYmE4LTc3NWMtNGI5OS1iN2QzLTk4Njg"
+                        "5ODM1N2FiYSJ9.DwpZizVaYtvIj7fagQqDFpDh96szFupf6BNMIVLcopqQtZ9dBvwN9lgZ_w7Htvb3r-erho_hc"
+                        "me5mqDMVbSKwsA2GiHfiXSnh9jmNNVaVjcvSPNVGF8jkKNxeSSgoT3wED8xt4oU4s5MYiR075-RAkt6AcWqVbXU"
+                        "z5BzxBvANko")
+        mock_pm._auth_data = access_token
+        mock_pm._refresh_time_diff = 300
+
+        self.assertTrue(powermanager._is_access_token_to_expire(mock_pm))
 
 if __name__ == '__main__':
     unittest.main()
