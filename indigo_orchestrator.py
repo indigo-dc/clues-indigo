@@ -156,9 +156,6 @@ class powermanager(PowerManager):
         self._client_secret = config_indigo.INDIGO_ORCHESTRATOR_CLIENT_SECRET
         self._refresh_token = None
 
-        # Initially we get the refresh token and a new access token
-        self._get_refresh_token()
-
         self._refresh_time_diff = 300
         self._inf_id = None
         self._master_nodes_ids = []
@@ -168,6 +165,9 @@ class powermanager(PowerManager):
         self._create_db()
         self._mvs_seen = self._load_mvs_seen()
         self._pending_tasks = self._load_pending_tasks()
+        
+        # Initially we get the refresh token and a new access token
+        self._get_refresh_token()
 
         new_token = self._load_token()
         if new_token:
@@ -179,7 +179,7 @@ class powermanager(PowerManager):
                 "INSERT or REPLACE into orchestrator_token values (0,'%s')" % self._auth_data, True)
         except:
             _LOGGER.exception(
-                "Error trying to save INDIGO orchestrator plugin data.")
+                "Error trying to save INDIGO orchestrator token data.")
 
     def _load_token(self):
         try:
