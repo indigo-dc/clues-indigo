@@ -166,17 +166,17 @@ class powermanager(PowerManager):
         self._mvs_seen = self._load_mvs_seen()
         self._pending_tasks = self._load_pending_tasks()
 
-        # Initially we get the refresh token and a new access token
-        self._get_refresh_token()
-
         new_token = self._load_token()
         if new_token:
             self._auth_data = new_token
 
+        # Initially we get the refresh token and a new access token
+        self._get_refresh_token()
+
     def _save_token(self):
         try:
-            self._db.sql_query(
-                "INSERT or REPLACE into orchestrator_token values (0,'%s')" % self._auth_data, True)
+            self._db.sql_query("DELETE FROM orchestrator_token", True)
+            self._db.sql_query("INSERT into orchestrator_token values ('%s', 0)" % self._auth_data, True)
         except:
             _LOGGER.exception(
                 "Error trying to save INDIGO orchestrator token data.")
@@ -185,7 +185,7 @@ class powermanager(PowerManager):
         try:
             result, _, rows = self._db.sql_query("select * from orchestrator_token")
             if result:
-                for (_, token) in rows:
+                for (token, _) in rows:
                     return token
             else:
                 _LOGGER.error(
