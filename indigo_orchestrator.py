@@ -15,6 +15,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+from platform import node
 '''
 Created on 26/1/2015
 
@@ -447,7 +448,13 @@ class powermanager(PowerManager):
             _LOGGER.exception(
                 "Error trying to save INDIGO orchestrator tasks data.")
 
-    def _process_pending_tasks(self):
+    def _get_node_info(self, monitoring_info, nname):
+        for node in monitoring_info.nodelist:
+            if node.nname == nname:
+                return node
+        return None
+
+    def _process_pending_tasks(self, monitoring_info):
         if not self._pending_tasks:
             return
 
@@ -461,23 +468,39 @@ class powermanager(PowerManager):
 
         _LOGGER.debug("Processing pending tasks: %s." % self._pending_tasks)
         task = self._pending_tasks[0]
-        del self._pending_tasks[0]
-        self._delete_task(task)
 
-        success = False
         if task.operation == self.POWER_ON:
-            success = self._power_on(task.nname)
+            task = self._pending_tasks.pop(0)
+            self._delete_task(task)
+            if not self._power_on(task.nname):
+                _LOGGER.error("Error processing task: %s" % task)
+            else:
+                _LOGGER.debug("Task %s correctly processed." % task)
         elif task.operation == self.POWER_OFF:
-            # TODO: get all the consecutive poweoffs
-            success = self._power_off([task.nname])
+            tasks = []
+            while self._pending_tasks:
+                if task.operation == self.POWER_OFF:
+                    self._pending_tasks.pop(0)
+                    self._delete_task(task)
+                    node_info = self._get_node_info(monitoring_info, task.nname)
+                    if not node_info:
+                        _LOGGER.warn("Trying to poweroff node %s that is not in then monitoring info. "
+                                     "Discard poweroff operation." % task.nname)
+                    else:
+                        if node_info.state != Node.USED:
+                            tasks.append(task.nname)
+                        else:
+                            _LOGGER.debug("Node %s is currently used, discard poweroff operation." % task.nname)
+                else:
+                    break
+                task = self._pending_tasks[0]
+            if not self._power_off(tasks):
+                _LOGGER.error("Error processing tasks: %s" % ",".join(tasks))
+            else:
+                _LOGGER.debug("Tasks PowerOff %s correctly processed." % ",".join(tasks))
         else:
             # it must not happen ...
             _LOGGER.error("Operation %s unknown." % task.operation)
-
-        if not success:
-            _LOGGER.error("Error processing task: %s" % str(task))
-        else:
-            _LOGGER.debug("Task %s correctly processed." % str(task))
 
     def lifecycle(self):
         try:
@@ -539,7 +562,7 @@ class powermanager(PowerManager):
 
             self._recover_ids(recover)
 
-            self._process_pending_tasks()
+            self._process_pending_tasks(monitoring_info)
         except:
             _LOGGER.exception(
                 "Error executing lifecycle of INDIGO Orchestrator PowerManager.")

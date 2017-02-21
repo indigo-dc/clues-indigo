@@ -209,17 +209,18 @@ class TestMesosPlugin(unittest.TestCase):
         delete_task.return_value = True
         power_on.return_value = True
 
-        task1 = powermanager.Task(powermanager.POWER_ON, 'task1')
-        task2 = powermanager.Task(powermanager.POWER_OFF, 'task2')
+        task1 = powermanager.Task(powermanager.POWER_ON, 'node1')
+        task2 = powermanager.Task(powermanager.POWER_OFF, 'node2')
         load_pending_tasks.return_value = [task1, task2]
 
-        powermanager()._process_pending_tasks()
+        monitoring_info = MagicMock()
+        powermanager()._process_pending_tasks(monitoring_info)
 
         self.assertEquals(delete_task.call_args_list, [call(task1)])
-        self.assertEquals(power_on.call_args_list, [call('task1')])
+        self.assertEquals(power_on.call_args_list, [call('node1')])
         self.assertIn("Processing pending tasks:", self.log.getvalue())
         self.assertIn(
-            "Task Power On on task1 correctly processed", self.log.getvalue())
+            "Task Power On on node1 correctly processed", self.log.getvalue())
 
     @patch('indigo_orchestrator.powermanager._power_off')
     @patch('indigo_orchestrator.powermanager._delete_task')
@@ -243,17 +244,32 @@ class TestMesosPlugin(unittest.TestCase):
         delete_task.return_value = True
         power_off.return_value = True
 
-        task1 = powermanager.Task(powermanager.POWER_ON, 'task1')
-        task2 = powermanager.Task(powermanager.POWER_OFF, 'task2')
-        load_pending_tasks.return_value = [task2, task1]
+        task1 = powermanager.Task(powermanager.POWER_ON, 'node1')
+        task2 = powermanager.Task(powermanager.POWER_OFF, 'node2')
+        task3 = powermanager.Task(powermanager.POWER_ON, 'node3')
+        task4 = powermanager.Task(powermanager.POWER_OFF, 'node4')
+        task5 = powermanager.Task(powermanager.POWER_OFF, 'node5')
+        task6 = powermanager.Task(powermanager.POWER_OFF, 'node6')
+        load_pending_tasks.return_value = [task6, task5, task4, task3, task2, task1]
 
-        powermanager()._process_pending_tasks()
+        node1 = MagicMock()
+        node1.nname = "node4"
+        node1.state = 0
+        node2 = MagicMock()
+        node2.nname = "node5"
+        node2.state = 0
+        node3 = MagicMock()
+        node3.nname = "node6"
+        node3.state = 1
+        monitoring_info = MagicMock()
+        monitoring_info.nodelist = [node1, node2, node3]
+        powermanager()._process_pending_tasks(monitoring_info)
 
-        self.assertEquals(delete_task.call_args_list, [call(task2)])
-        self.assertEquals(power_off.call_args_list, [call(['task2'])])
+        self.assertEquals(delete_task.call_args_list, [call(task6), call(task5), call(task4)])
+        self.assertEquals(power_off.call_args_list, [call(['node5', 'node4'])])
         self.assertIn("Processing pending tasks:", self.log.getvalue())
         self.assertIn(
-            "Task Power Off on task2 correctly processed", self.log.getvalue())
+            "Tasks PowerOff node5,node4 correctly processed", self.log.getvalue())
 
     def test_power_off(self):
         mock_pm = MagicMock(powermanager)
