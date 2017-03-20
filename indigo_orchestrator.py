@@ -449,7 +449,7 @@ class powermanager(PowerManager):
 
     def _get_node_info(self, monitoring_info, nname):
         for node in monitoring_info.nodelist:
-            if node.nname == nname:
+            if node.name == nname:
                 return node
         return None
 
