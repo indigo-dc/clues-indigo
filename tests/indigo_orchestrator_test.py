@@ -253,13 +253,13 @@ class TestMesosPlugin(unittest.TestCase):
         load_pending_tasks.return_value = [task6, task5, task4, task3, task2, task1]
 
         node1 = MagicMock()
-        node1.nname = "node4"
+        node1.name = "node4"
         node1.state = 0
         node2 = MagicMock()
-        node2.nname = "node5"
+        node2.name = "node5"
         node2.state = 0
         node3 = MagicMock()
-        node3.nname = "node6"
+        node3.name = "node6"
         node3.state = 1
         monitoring_info = MagicMock()
         monitoring_info.nodelist = [node1, node2, node3]
