@@ -492,7 +492,8 @@ class powermanager(PowerManager):
                             _LOGGER.debug("Node %s is currently used, discard poweroff operation." % task.nname)
                 else:
                     break
-                task = self._pending_tasks[0]
+                if self._pending_tasks:
+                    task = self._pending_tasks[0]
             if not self._power_off(tasks):
                 _LOGGER.error("Error processing tasks: %s" % ",".join(tasks))
             else:
