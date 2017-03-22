@@ -494,10 +494,11 @@ class powermanager(PowerManager):
                     break
                 if self._pending_tasks:
                     task = self._pending_tasks[0]
-            if not self._power_off(tasks):
-                _LOGGER.error("Error processing tasks: %s" % ",".join(tasks))
-            else:
-                _LOGGER.debug("Tasks PowerOff %s correctly processed." % ",".join(tasks))
+            if tasks:
+                if not self._power_off(tasks):
+                    _LOGGER.error("Error processing tasks: %s" % ",".join(tasks))
+                else:
+                    _LOGGER.debug("Tasks PowerOff %s correctly processed." % ",".join(tasks))
         else:
             # it must not happen ...
             _LOGGER.error("Operation %s unknown." % task.operation)
@@ -654,7 +655,7 @@ class powermanager(PowerManager):
             _LOGGER.debug("Deployment in status: %s" % deployment_info['status'])
             return deployment_info['status']
 
-    def _modify_deployment(self, vms, remove_nodes=None, add_nodes=None):
+    def _modify_deployment(self, vms, remove_nodes=[], add_nodes=[]):
         inf_id = self._get_inf_id()
 
         headers = {'Accept': 'application/json', 'Connection': 'close', 'Content-Type': 'application/json'}
