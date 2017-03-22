@@ -270,22 +270,39 @@ class TestMesosPlugin(unittest.TestCase):
         self.assertIn("Processing pending tasks:", self.log.getvalue())
         self.assertIn(
             "Tasks PowerOff node5,node4 correctly processed", self.log.getvalue())
+        self.assertIn(
+            "Node node6 is currently used, discard poweroff operation", self.log.getvalue())
 
-        task1 = powermanager.Task(powermanager.POWER_OFF, 'node1')
+        task1 = powermanager.Task(powermanager.POWER_OFF, 'node7')
         load_pending_tasks.return_value = [task1]
 
         node1 = MagicMock()
-        node1.name = "node1"
+        node1.name = "node7"
         node1.state = 0
         monitoring_info = MagicMock()
         monitoring_info.nodelist = [node1]
         powermanager()._process_pending_tasks(monitoring_info)
 
         self.assertEquals(delete_task.call_args_list[3], call(task1))
-        self.assertEquals(power_off.call_args_list[1], call(['node1']))
-        self.assertIn("Processing pending tasks:", self.log.getvalue())
+        self.assertEquals(len(power_off.call_args_list), 2)
+        self.assertEquals(power_off.call_args_list[1], call(['node7']))
         self.assertIn(
-            "Tasks PowerOff node1 correctly processed", self.log.getvalue())
+            "Tasks PowerOff node7 correctly processed", self.log.getvalue())
+
+        task1 = powermanager.Task(powermanager.POWER_OFF, 'node8')
+        load_pending_tasks.return_value = [task1]
+
+        node1 = MagicMock()
+        node1.name = "node8"
+        node1.state = 1
+        monitoring_info = MagicMock()
+        monitoring_info.nodelist = [node1]
+        powermanager()._process_pending_tasks(monitoring_info)
+
+        self.assertEquals(delete_task.call_args_list[4], call(task1))
+        self.assertEquals(len(power_off.call_args_list), 2)
+        self.assertIn(
+            "Node node8 is currently used, discard poweroff operation", self.log.getvalue())
 
     def test_power_off(self):
         mock_pm = MagicMock(powermanager)
