@@ -310,6 +310,11 @@ class powermanager(PowerManager):
                 creation_time = time.strptime(resource['creationTime'][:-5], "%Y-%m-%dT%H:%M")
                 if creation_time <= last_time:
                     last_time = creation_time
+
+            for resource in resources:
+                # date format: 2016-02-04T10:43+0000
+                creation_time = time.strptime(resource['creationTime'][:-5], "%Y-%m-%dT%H:%M")
+                if creation_time <= last_time:
                     older_resources.append(resource)
 
             self._master_nodes_ids = [res['uuid'] for res in older_resources]
@@ -367,8 +372,9 @@ class powermanager(PowerManager):
         if not resources:
             _LOGGER.warning("No resources obtained from orchestrator.")
         else:
+            master_nodes = self._get_master_node_id(resources)
             for resource in resources:
-                if resource['uuid'] not in self._get_master_node_id(resources):
+                if resource['uuid'] not in master_nodes:
                     vm = self.VM_Node(resource['uuid'])
                     status = resource['state']
                     # Possible status (TOSCA node status)
