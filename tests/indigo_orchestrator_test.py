@@ -154,7 +154,7 @@ class TestMesosPlugin(unittest.TestCase):
         pm.lifecycle()
 
         self.assertEquals(
-            str(pm._pending_tasks[0]), "Power Off on vnode1")
+            str(pm._pending_tasks[0]), "Power Off on ee6a8510-974c-411c-b8ff-71bb133148eb")
 
     def test_load_pending_tasks_error(self):
         mock_pm = MagicMock(powermanager)
@@ -222,6 +222,9 @@ class TestMesosPlugin(unittest.TestCase):
         self.assertIn(
             "Task Power On on node1 correctly processed", self.log.getvalue())
 
+    def get_nodename_from_uuid(self, uuid):
+        return uuid
+
     @patch('indigo_orchestrator.powermanager._power_off')
     @patch('indigo_orchestrator.powermanager._delete_task')
     @patch('cpyutils.eventloop.now')
@@ -231,8 +234,10 @@ class TestMesosPlugin(unittest.TestCase):
     @patch('indigo_orchestrator.powermanager._load_mvs_seen')
     @patch('indigo_orchestrator.powermanager._get_resources_page')
     @patch('indigo_orchestrator.powermanager._get_deployment_status')
-    def test_process_pending_tasks_power_off(self, get_deployment_status, get_resources_page, load_mvs_seen,
-                                             load_pending_tasks, create_db, cpyutils_db_create, now,
+    @patch('indigo_orchestrator.powermanager._get_nodename_from_uuid')
+    def test_process_pending_tasks_power_off(self, get_nodename_from_uuid, get_deployment_status,
+                                             get_resources_page, load_mvs_seen, load_pending_tasks,
+                                             create_db, cpyutils_db_create, now,
                                              delete_task, power_off):
         now.return_value = 1.0
         create_db.return_value = True
@@ -263,6 +268,9 @@ class TestMesosPlugin(unittest.TestCase):
         node3.state = 1
         monitoring_info = MagicMock()
         monitoring_info.nodelist = [node1, node2, node3]
+
+        get_nodename_from_uuid.side_effect = self.get_nodename_from_uuid
+
         powermanager()._process_pending_tasks(monitoring_info)
 
         self.assertEquals(delete_task.call_args_list, [call(task6), call(task5), call(task4)])
