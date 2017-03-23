@@ -154,7 +154,7 @@ class TestMesosPlugin(unittest.TestCase):
         pm.lifecycle()
 
         self.assertEquals(
-            str(pm._pending_tasks[0]), "Power Off on ee6a8510-974c-411c-b8ff-71bb133148eb")
+            str(pm._pending_tasks[0]), "Power Off on vnode1")
 
     def test_load_pending_tasks_error(self):
         mock_pm = MagicMock(powermanager)

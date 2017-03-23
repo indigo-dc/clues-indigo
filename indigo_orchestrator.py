@@ -727,7 +727,15 @@ class powermanager(PowerManager):
 
     def _power_off(self, node_list):
         try:
-            resp_status, output = self._modify_deployment(self._mvs_seen, remove_nodes=node_list)
+            vm_ids = []
+            for nname in node_list:
+                vmid = self._get_uuid_from_nodename(nname)
+                if vmid:
+                    vm_ids.append(vmid)
+                else:
+                    _LOGGER.warn("There is not any VM associated to node %s. Ignoring power off." % nname)
+
+            resp_status, output = self._modify_deployment(self._mvs_seen, remove_nodes=vm_ids)
 
             if resp_status not in [200, 201, 202, 204]:
                 _LOGGER.error("ERROR deleting nodes: %s: %s" % (node_list, output))
@@ -740,13 +748,8 @@ class powermanager(PowerManager):
             return False
 
     def power_off(self, nname):
-        vmid = self._get_uuid_from_nodename(nname)
-        if not vmid:
-            _LOGGER.error("There is not any VM associated to node %s. Nothing to power off." % nname)
-            return False, nname
-        else:
-            self._add_task(self.POWER_OFF, str(vmid))
-            return True, nname
+        self._add_task(self.POWER_OFF, nname)
+        return True, nname
 
     def _get_template(self, count, remove_nodes, add_nodes):
         inf_id = self._get_inf_id()
