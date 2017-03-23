@@ -154,7 +154,7 @@ class TestMesosPlugin(unittest.TestCase):
         pm.lifecycle()
 
         self.assertEquals(
-            str(pm._pending_tasks[0]), "Power Off on ee6a8510-974c-411c-b8ff-71bb133148eb")
+            str(pm._pending_tasks[0]), "Power Off on vnode1")
 
     def test_load_pending_tasks_error(self):
         mock_pm = MagicMock(powermanager)
@@ -694,6 +694,18 @@ class TestMesosPlugin(unittest.TestCase):
         mock_pm._refresh_time_diff = 300
 
         self.assertTrue(powermanager._is_access_token_to_expire(mock_pm))
+
+    def test_get_master_node_id(self):
+        mock_pm = MagicMock(powermanager)
+        mock_pm._master_nodes_ids = []
+        resources = [{u'uuid': u'8fef4c1c-18c6-4091-9b8f-5d5e48bcef31', u'creationTime': u'2017-03-22T15:29+0000'},
+                     {u'uuid': u'8e1304bf-916c-4587-88e8-44bb27ea6720', u'creationTime': u'2017-03-22T15:18+0000'},
+                     {u'uuid': u'58d0dfa3-50e4-4e64-8237-819fce6fe8ec', u'creationTime': u'2017-03-22T15:00+0000'},
+                     {u'uuid': u'ee650cbf-f942-49b6-8fbf-096f06cab7d8', u'creationTime': u'2017-03-22T14:33+0000'},
+                     {u'uuid': u'ac44b30a-f00b-4b6c-8b25-ab3852883046', u'creationTime': u'2017-03-22T14:33+0000'}]
+        masters = powermanager._get_master_node_id(mock_pm, resources)
+        expected_res = [u'ee650cbf-f942-49b6-8fbf-096f06cab7d8', u'ac44b30a-f00b-4b6c-8b25-ab3852883046']
+        self.assertEquals(masters, expected_res)
 
 if __name__ == '__main__':
     unittest.main()

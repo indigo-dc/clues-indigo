@@ -135,7 +135,7 @@ class powermanager(PowerManager):
                 "INDIGO_ORCHESTRATOR_URL": "http://172.30.15.43:8080",
                 "INDIGO_ORCHESTRATOR_DEPLOY_ID": None,
                 "INDIGO_ORCHESTRATOR_MAX_INSTANCES": 0,
-                "INDIGO_ORCHESTRATOR_FORGET_MISSING_VMS": 30,
+                "INDIGO_ORCHESTRATOR_FORGET_MISSING_VMS": 600,
                 "INDIGO_ORCHESTRATOR_DROP_FAILING_VMS": 30,
                 "INDIGO_ORCHESTRATOR_DB_CONNECTION_STRING": "sqlite:///var/lib/clues2/clues.db",
                 "INDIGO_ORCHESTRATOR_PAGE_SIZE": 20,
@@ -310,6 +310,10 @@ class powermanager(PowerManager):
                 creation_time = time.strptime(resource['creationTime'][:-5], "%Y-%m-%dT%H:%M")
                 if creation_time <= last_time:
                     last_time = creation_time
+
+            for resource in resources:
+                creation_time = time.strptime(resource['creationTime'][:-5], "%Y-%m-%dT%H:%M")
+                if creation_time <= last_time:
                     older_resources.append(resource)
 
             self._master_nodes_ids = [res['uuid'] for res in older_resources]
@@ -367,8 +371,9 @@ class powermanager(PowerManager):
         if not resources:
             _LOGGER.warning("No resources obtained from orchestrator.")
         else:
+            master_nodes = self._get_master_node_id(resources)
             for resource in resources:
-                if resource['uuid'] not in self._get_master_node_id(resources):
+                if resource['uuid'] not in master_nodes:
                     vm = self.VM_Node(resource['uuid'])
                     status = resource['state']
                     # Possible status (TOSCA node status)
@@ -727,7 +732,15 @@ class powermanager(PowerManager):
 
     def _power_off(self, node_list):
         try:
-            resp_status, output = self._modify_deployment(self._mvs_seen, remove_nodes=node_list)
+            vm_ids = []
+            for nname in node_list:
+                vmid = self._get_uuid_from_nodename(nname)
+                if vmid:
+                    vm_ids.append(vmid)
+                else:
+                    _LOGGER.warn("There is not any VM associated to node %s. Ignoring power off." % nname)
+
+            resp_status, output = self._modify_deployment(self._mvs_seen, remove_nodes=vm_ids)
 
             if resp_status not in [200, 201, 202, 204]:
                 _LOGGER.error("ERROR deleting nodes: %s: %s" % (node_list, output))
@@ -740,13 +753,8 @@ class powermanager(PowerManager):
             return False
 
     def power_off(self, nname):
-        vmid = self._get_uuid_from_nodename(nname)
-        if not vmid:
-            _LOGGER.error("There is not any VM associated to node %s. Nothing to power off." % nname)
-            return False, nname
-        else:
-            self._add_task(self.POWER_OFF, str(vmid))
-            return True, nname
+        self._add_task(self.POWER_OFF, nname)
+        return True, nname
 
     def _get_template(self, count, remove_nodes, add_nodes):
         inf_id = self._get_inf_id()
