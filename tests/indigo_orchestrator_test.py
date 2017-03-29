@@ -30,6 +30,7 @@ class TestMesosPlugin(unittest.TestCase):
 
     @classmethod
     def setUp(cls):
+        cls.get_resources_call_count = 0
         cls.log = StringIO()
         ch = logging.StreamHandler(cls.log)
         cls.ch = ch
@@ -366,7 +367,14 @@ class TestMesosPlugin(unittest.TestCase):
         powermanager()._power_on('vnode1')
         self.assertIn("Node vnode1 successfully created", self.log.getvalue())
         self.assertIn(
-            "Trying to get the uuids of the new node and get 0 uuids", self.log.getvalue())
+            "Trying to get the uuids of the new node and get no new uuids", self.log.getvalue())
+
+    def get_resources(self):
+        if self.get_resources_call_count == 0:
+            self.get_resources_call_count = 1
+            return read_file_as_json("test-files/get-resources-output.json")
+        else:
+            return read_file_as_json("test-files/get-resources-output2.json")
 
     @patch('indigo_orchestrator.powermanager._add_mvs_seen')
     @patch('indigo_orchestrator.powermanager._power_off')
@@ -389,8 +397,7 @@ class TestMesosPlugin(unittest.TestCase):
         get_deployment_status.return_value = "CREATE_COMPLETE"
         delete_task.return_value = True
         power_off.return_value = True
-        get_resources.return_value = read_file_as_json(
-            "test-files/get-resources-output.json")
+        get_resources.side_effect = self.get_resources
         modify_deployment.return_value = 200, 'test'
         self.assertEquals(powermanager()._power_on('vnode1'), True)
         self.assertIn("Node vnode1 successfully created", self.log.getvalue())

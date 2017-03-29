@@ -16,5 +16,23 @@
         "requiredBy": [], 
         "state": "STARTED", 
         "toscaNodeName": "torque_server"
+    }, 
+    {
+        "uuid": "ee6a8510-974c-411c-b8ff-71bb133148eb", 
+        "links": [
+            {
+                "href": "http://localhost:8080/orchestrator/deployments/4f2657f5-adfb-43da-a312-5f3f2bb7e55c", 
+                "rel": "deployment"
+            }, 
+            {
+                "href": "http://localhost:8080/orchestrator/deployments/4f2657f5-adfb-43da-a312-5f3f2bb7e55c/resources/ee6a8510-974c-411c-b8ff-71bb133148eb", 
+                "rel": "self"
+            }
+        ], 
+        "toscaNodeType": "tosca.nodes.indigo.Compute", 
+        "creationTime": "2016-05-30T07:22+0000",
+        "requiredBy": [],
+        "state": "CREATING",
+        "toscaNodeName": "torque_wn"
     }
 ]

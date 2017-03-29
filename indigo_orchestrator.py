@@ -698,6 +698,8 @@ class powermanager(PowerManager):
         try:
             vms = self._mvs_seen
 
+            # Get the list of resources before the modification
+            current_uuids = [resource['uuid'] for resource in self._get_resources()]
             resp_status, output = self._modify_deployment(vms, add_nodes=[node_name])
 
             if resp_status not in [200, 201, 202, 204]:
@@ -715,7 +717,6 @@ class powermanager(PowerManager):
                 while not new_uuids and wait < timeout:
                     # Get the list of resources now to get the new vm added
                     resources = self._get_resources()
-                    current_uuids = [vm.vm_id for vm in vms.values()]
                     for resource in resources:
                         if (resource['uuid'] not in self._get_master_node_id(resources) and
                                 resource['uuid'] not in current_uuids):
@@ -724,10 +725,14 @@ class powermanager(PowerManager):
                         time.sleep(delay)
                         wait += delay
 
-                if len(new_uuids) != 1:
-                    _LOGGER.warning(
-                        "Trying to get the uuids of the new node and get %d uuids!!" % len(new_uuids))
+                if len(new_uuids) < 1:
+                    _LOGGER.warning("Trying to get the uuids of the new node and get no new uuids!!")
                 else:
+                    if len(new_uuids) != 1:
+                        _LOGGER.warning("Trying to get the uuids of the new node and get %d uuids!!."
+                                        " Assuming it is the first one." % len(new_uuids))
+
+                    _LOGGER.debug("Node: %s assigned to VM: %s." % (node_name, new_uuids[0]))
                     self._add_mvs_seen(node_name, self.VM_Node(new_uuids[0]))
                     return True
         except:
