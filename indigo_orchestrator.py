@@ -696,7 +696,7 @@ class powermanager(PowerManager):
 
     def _power_on(self, node_name):
         try:
-            vms = self._mvs_seen
+            vms = self._get_vms()
 
             # Get the list of resources before the modification
             current_uuids = [resource['uuid'] for resource in self._get_resources()]
@@ -741,7 +741,8 @@ class powermanager(PowerManager):
 
     def _power_off(self, node_list):
         try:
-            resp_status, output = self._modify_deployment(self._mvs_seen, remove_nodes=node_list)
+            vms = self._get_vms()
+            resp_status, output = self._modify_deployment(vms, remove_nodes=node_list)
 
             if resp_status not in [200, 201, 202, 204]:
                 _LOGGER.error("ERROR deleting nodes: %s: %s" % (node_list, output))

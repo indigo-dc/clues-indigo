@@ -383,16 +383,15 @@ class TestMesosPlugin(unittest.TestCase):
     @patch('cpyutils.db.DB.create_from_string')
     @patch('indigo_orchestrator.powermanager._create_db')
     @patch('indigo_orchestrator.powermanager._load_pending_tasks')
-    @patch('indigo_orchestrator.powermanager._load_mvs_seen')
     @patch('indigo_orchestrator.powermanager._get_resources')
     @patch('indigo_orchestrator.powermanager._get_deployment_status')
     @patch('indigo_orchestrator.powermanager._modify_deployment')
-    def test_power_on(self, modify_deployment, get_deployment_status, get_resources, load_mvs_seen,
-                      load_pending_tasks, create_db, cpyutils_db_create, now, delete_task, power_off, add_mvs_seen):
+    @patch('indigo_orchestrator.powermanager._get_vms')
+    def test_power_on(self, get_vms, modify_deployment, get_deployment_status, get_resources,
+                       load_pending_tasks, create_db, cpyutils_db_create, now, delete_task, power_off, add_mvs_seen):
         now.return_value = 1.0
         create_db.return_value = True
-        load_mvs_seen.return_value = {
-            'vnode1': powermanager.VM_Node('ee6a8510-974c-411c-b8ff-71bb133148aa')}
+        get_vms.return_value = {'vnode1': powermanager.VM_Node('ee6a8510-974c-411c-b8ff-71bb133148aa')}
         cpyutils_db_create.return_value = None
         get_deployment_status.return_value = "CREATE_COMPLETE"
         delete_task.return_value = True
