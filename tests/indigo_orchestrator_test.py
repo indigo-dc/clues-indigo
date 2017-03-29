@@ -387,8 +387,8 @@ class TestMesosPlugin(unittest.TestCase):
     @patch('indigo_orchestrator.powermanager._get_deployment_status')
     @patch('indigo_orchestrator.powermanager._modify_deployment')
     @patch('indigo_orchestrator.powermanager._get_vms')
-    def test_power_on(self, get_vms, modify_deployment, get_deployment_status, get_resources,
-                       load_pending_tasks, create_db, cpyutils_db_create, now, delete_task, power_off, add_mvs_seen):
+    def test_power_on(self, get_vms, modify_deployment, get_deployment_status, get_resources, load_pending_tasks,
+                      create_db, cpyutils_db_create, now, delete_task, power_off, add_mvs_seen):
         now.return_value = 1.0
         create_db.return_value = True
         get_vms.return_value = {'vnode1': powermanager.VM_Node('ee6a8510-974c-411c-b8ff-71bb133148aa')}
