@@ -135,7 +135,7 @@ class powermanager(PowerManager):
                 "INDIGO_ORCHESTRATOR_URL": "http://172.30.15.43:8080",
                 "INDIGO_ORCHESTRATOR_DEPLOY_ID": None,
                 "INDIGO_ORCHESTRATOR_MAX_INSTANCES": 0,
-                "INDIGO_ORCHESTRATOR_FORGET_MISSING_VMS": 600,
+                "INDIGO_ORCHESTRATOR_FORGET_MISSING_VMS": 30,
                 "INDIGO_ORCHESTRATOR_DROP_FAILING_VMS": 30,
                 "INDIGO_ORCHESTRATOR_DB_CONNECTION_STRING": "sqlite:///var/lib/clues2/clues.db",
                 "INDIGO_ORCHESTRATOR_PAGE_SIZE": 20,
