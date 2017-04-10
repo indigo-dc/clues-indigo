@@ -742,7 +742,17 @@ class powermanager(PowerManager):
     def _power_off(self, node_list):
         try:
             vms = self._get_vms()
-            resp_status, output = self._modify_deployment(vms, remove_nodes=node_list)
+
+            # We have to check if the node has been deleted yet to avoid try to delete again
+            current_uuids = [resource['uuid'] for resource in self._get_resources()]
+            to_delete = []
+            for node in node_list:
+                if node not in current_uuids:
+                    to_delete.append(node)
+                else:
+                    _LOGGER.debug("Trying to delete a non existing resource %s. Ignoring." % node)
+
+            resp_status, output = self._modify_deployment(vms, remove_nodes=to_delete)
 
             if resp_status not in [200, 201, 202, 204]:
                 _LOGGER.error("ERROR deleting nodes: %s: %s" % (node_list, output))
