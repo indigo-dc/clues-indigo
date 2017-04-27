@@ -662,6 +662,8 @@ class powermanager(PowerManager):
         else:
             deployment_info = json.loads(resp.text)
             _LOGGER.debug("Deployment in status: %s" % deployment_info['status'])
+            if 'statusReason' in deployment_info:
+                _LOGGER.debug("Deployment status reason: %s" % deployment_info['statusReason'])
             return deployment_info['status']
 
     def _modify_deployment(self, vms, remove_nodes=[], add_nodes=[]):
