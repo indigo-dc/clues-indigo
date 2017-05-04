@@ -796,7 +796,7 @@ class powermanager(PowerManager):
 
             if remove_nodes:
                 if count < len(remove_nodes):
-                    count = 0
+                    count = 1
                 node_template['capabilities']['scalable']['properties']['count'] = count - len(remove_nodes)
                 node_template['capabilities']['scalable']['properties']['removal_list'] = remove_nodes
             else:
