@@ -31,9 +31,6 @@ topology_template:
       type: tosca.nodes.indigo.Compute
     torque_wn:
       capabilities:
-        endpoint:
-          properties:
-            dns_name: []
         host:
           properties: {mem_size: 1 GB, num_cpus: 1}
         os:
