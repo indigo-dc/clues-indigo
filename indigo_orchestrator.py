@@ -750,9 +750,9 @@ class powermanager(PowerManager):
             to_delete = []
             for node in node_list:
                 if node not in current_uuids:
-                    to_delete.append(node)
-                else:
                     _LOGGER.debug("Trying to delete a non existing resource %s. Ignoring." % node)
+                else:
+                    to_delete.append(node)
 
             resp_status, output = self._modify_deployment(vms, remove_nodes=to_delete)
 
@@ -799,7 +799,7 @@ class powermanager(PowerManager):
                     count = 1
                 node_template['capabilities']['scalable']['properties']['count'] = count - len(remove_nodes)
                 node_template['capabilities']['scalable']['properties']['removal_list'] = remove_nodes
-            else:
+            elif add_nodes:
                 node_template['capabilities']['scalable']['properties']['count'] = count + len(add_nodes)
                 # Put the dns name
                 if 'endpoint' not in node_template['capabilities']:
@@ -811,6 +811,8 @@ class powermanager(PowerManager):
                     node_template['capabilities']['endpoint']['properties']['dns_name'] = add_nodes[0]
                 else:
                     node_template['capabilities']['endpoint']['properties']['dns_name'] = add_nodes
+            else:
+                _LOGGER.warning("No add node nor remove nodes specified to the get_template function")
 
         return yaml.dump(templateo)
 
