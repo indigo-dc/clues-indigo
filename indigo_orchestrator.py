@@ -666,7 +666,7 @@ class powermanager(PowerManager):
                 _LOGGER.debug("Deployment status reason: %s" % deployment_info['statusReason'])
             return deployment_info['status']
 
-    def _modify_deployment(self, vms, remove_nodes=[], add_nodes=[]):
+    def _modify_deployment(self, current_uuids, remove_nodes=[], add_nodes=[]):
         inf_id = self._get_inf_id()
 
         headers = {'Accept': 'application/json', 'Connection': 'close', 'Content-Type': 'application/json'}
@@ -674,7 +674,7 @@ class powermanager(PowerManager):
         if auth:
             headers.update(auth)
 
-        template = self._get_template(len(vms), remove_nodes, add_nodes)
+        template = self._get_template(len(current_uuids), remove_nodes, add_nodes)
         _LOGGER.debug("template: " + template)
         body = '{ "template": "%s" }' % template.replace('"', '\\"').replace('\n', '\\n')
 
@@ -698,11 +698,11 @@ class powermanager(PowerManager):
 
     def _power_on(self, node_name):
         try:
-            vms = self._get_vms()
-
             # Get the list of resources before the modification
-            current_uuids = [resource['uuid'] for resource in self._get_resources()]
-            resp_status, output = self._modify_deployment(vms, add_nodes=[node_name])
+            resources = self._get_resources()
+            masters = self._get_master_node_id(resources)
+            current_uuids = [resource['uuid'] for resource in resources if resource['uuid'] not in masters]
+            resp_status, output = self._modify_deployment(current_uuids, add_nodes=[node_name])
 
             if resp_status not in [200, 201, 202, 204]:
                 _LOGGER.error("Error launching node %s: %s" % (node_name, output))
@@ -746,15 +746,17 @@ class powermanager(PowerManager):
             vms = self._get_vms()
 
             # We have to check if the node has been deleted yet to avoid try to delete again
-            current_uuids = [resource['uuid'] for resource in self._get_resources()]
+            resources = self._get_resources()
+            masters = self._get_master_node_id(resources)
+            current_uuids = [resource['uuid'] for resource in resources if resource['uuid'] not in masters]
             to_delete = []
             for node in node_list:
                 if node not in current_uuids:
-                    to_delete.append(node)
-                else:
                     _LOGGER.debug("Trying to delete a non existing resource %s. Ignoring." % node)
+                else:
+                    to_delete.append(node)
 
-            resp_status, output = self._modify_deployment(vms, remove_nodes=to_delete)
+            resp_status, output = self._modify_deployment(current_uuids, remove_nodes=to_delete)
 
             if resp_status not in [200, 201, 202, 204]:
                 _LOGGER.error("ERROR deleting nodes: %s: %s" % (node_list, output))
@@ -799,7 +801,7 @@ class powermanager(PowerManager):
                     count = 1
                 node_template['capabilities']['scalable']['properties']['count'] = count - len(remove_nodes)
                 node_template['capabilities']['scalable']['properties']['removal_list'] = remove_nodes
-            else:
+            elif add_nodes:
                 node_template['capabilities']['scalable']['properties']['count'] = count + len(add_nodes)
                 # Put the dns name
                 if 'endpoint' not in node_template['capabilities']:
@@ -811,6 +813,8 @@ class powermanager(PowerManager):
                     node_template['capabilities']['endpoint']['properties']['dns_name'] = add_nodes[0]
                 else:
                     node_template['capabilities']['endpoint']['properties']['dns_name'] = add_nodes
+            else:
+                _LOGGER.warning("No add node nor remove nodes specified to the get_template function")
 
         return yaml.dump(templateo)
 
