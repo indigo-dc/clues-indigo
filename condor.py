@@ -276,5 +276,6 @@ class lrms(clueslib.platform.LRMS):
             return None
         return jobinfolist
 
+
 if __name__ == '__main__':
     pass
