@@ -284,5 +284,6 @@ class TestMesosPlugin(unittest.TestCase):
 
         assert len(job_info_list) == 4
 
+
 if __name__ == '__main__':
     unittest.main()

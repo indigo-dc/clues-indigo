@@ -721,5 +721,6 @@ class TestMesosPlugin(unittest.TestCase):
         expected_res = [u'ee650cbf-f942-49b6-8fbf-096f06cab7d8', u'ac44b30a-f00b-4b6c-8b25-ab3852883046']
         self.assertEquals(masters, expected_res)
 
+
 if __name__ == '__main__':
     unittest.main()
