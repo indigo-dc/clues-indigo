@@ -817,7 +817,12 @@ class powermanager(PowerManager):
             else:
                 _LOGGER.warning("No add node nor remove nodes specified to the get_template function")
 
-        return yaml.dump(templateo)
+        # Force the version to be at the first line as expected in the standard
+        tosca_ver = templateo['tosca_definitions_version']
+        del templateo['tosca_definitions_version']
+        tosca = "tosca_definitions_version: %s\n" % tosca_ver
+        tosca += yaml.dump(templateo)
+        return tosca
 
     def _find_wn_nodetemplate_name(self, template):
         try:
