@@ -794,6 +794,7 @@ class powermanager(PowerManager):
         else:
             templateo = yaml.load(resp.text)
             node_name = self._find_wn_nodetemplate_name(templateo)
+            _LOGGER.debug("WN template name: %s" % node_name)
             node_template = templateo['topology_template']['node_templates'][node_name]
 
             if remove_nodes:
@@ -816,7 +817,12 @@ class powermanager(PowerManager):
             else:
                 _LOGGER.warning("No add node nor remove nodes specified to the get_template function")
 
-        return yaml.dump(templateo)
+        # Force the version to be at the first line as expected in the standard
+        tosca_ver = templateo['tosca_definitions_version']
+        del templateo['tosca_definitions_version']
+        tosca = "tosca_definitions_version: %s\n" % tosca_ver
+        tosca += yaml.dump(templateo)
+        return tosca
 
     def _find_wn_nodetemplate_name(self, template):
         try:
@@ -824,7 +830,14 @@ class powermanager(PowerManager):
                 if node['type'].startswith("tosca.nodes.indigo.LRMS.WorkerNode"):
                     for req in node['requirements']:
                         if 'host' in req:
-                            return req['host']
+                            if isinstance(req['host'], dict):
+                                if 'node' in req['host']:
+                                    return req['host']['node']
+                                else:
+                                    _LOGGER.error("Error trying to get the WN template: Host "
+                                                  "requirement in unknown format: %s" % req['host'])
+                            else:
+                                return req['host']
         except Exception:
             _LOGGER.exception("Error trying to get the WN template.")
 
