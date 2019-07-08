@@ -794,6 +794,7 @@ class powermanager(PowerManager):
         else:
             templateo = yaml.load(resp.text)
             node_name = self._find_wn_nodetemplate_name(templateo)
+            _LOGGER.debug("WN template name: %s" % node_name)
             node_template = templateo['topology_template']['node_templates'][node_name]
 
             if remove_nodes:
@@ -824,7 +825,14 @@ class powermanager(PowerManager):
                 if node['type'].startswith("tosca.nodes.indigo.LRMS.WorkerNode"):
                     for req in node['requirements']:
                         if 'host' in req:
-                            return req['host']
+                            if isinstance(req['host'], dict):
+                                if 'node' in req['host']:
+                                    return req['host']['node']
+                                else:
+                                    _LOGGER.error("Error trying to get the WN template: Host "
+                                                  "requirement in unknown format: %s" % req['host'])
+                            else:
+                                return req['host']
         except Exception:
             _LOGGER.exception("Error trying to get the WN template.")
 
