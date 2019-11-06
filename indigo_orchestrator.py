@@ -265,11 +265,15 @@ class powermanager(PowerManager):
             try:
                 decoded_token = powermanager.JWT().get_info(self._auth_data)
                 now = int(time.time())
-                expires = int(decoded_token['exp'])
-                _LOGGER.debug("The access token is valid for %s seconds." % (expires - now))
-                if expires - now < self._refresh_time_diff:
-                    return True
+                if 'exp' in decoded_token:
+                    expires = int(decoded_token['exp'])
+                    _LOGGER.debug("The access token is valid for %s seconds." % (expires - now))
+                    if expires - now < self._refresh_time_diff:
+                        return True
+                    else:
+                        return False
                 else:
+                    _LOGGER.debug("The access tokes does not have expiration time.")
                     return False
             except:
                 _LOGGER.exception("Error getting token info.")
