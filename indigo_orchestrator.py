@@ -361,7 +361,8 @@ class powermanager(PowerManager):
                             if 'content' in res:
                                 resources.extend(res['content'])
 
-                return [resource for resource in resources if resource['toscaNodeType'] == "tosca.nodes.indigo.Compute"]
+                return [resource for resource in resources if resource['toscaNodeType'] == "tosca.nodes.indigo.Compute" and 
+                        not resource["toscaNodeName"].startswith("indigovr")]
 
             return resources
         except:
