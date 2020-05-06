@@ -719,7 +719,7 @@ class powermanager(PowerManager):
                 # wait to assure the orchestrator process the operation
                 delay = 2
                 wait = 0
-                timeout = 60
+                timeout = 180
                 new_uuids = []
                 while not new_uuids and wait < timeout:
                     # Get the list of resources now to get the new vm added
